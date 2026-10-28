@@ -4,6 +4,14 @@ Architecture report for a self-hosted, commercializable document, OCR, image, me
 
 Implementation brief: [`docs/implementation-brief.md`](docs/implementation-brief.md)
 
+Public design documents:
+
+- [Platform support](docs/platform-support.md)
+- [Retrieval and semantic graph](docs/retrieval-and-graph.md)
+- [Private runtime boundary](docs/private-runtime.md)
+- [Local PostgreSQL reference stack](compose.yaml)
+- [Local development](docs/development.md)
+
 This document records the current recommendation. It does not implement the stack and it does not constitute legal advice or a compliance certification.
 
 ## Executive decision
@@ -143,7 +151,11 @@ Source: https://github.com/seaweedfs/seaweedfs/blob/master/docker/seaweedfs-comp
 
 ## Search, memory, and metadata
 
-### PostgreSQL
+### PostgreSQL and pgvector
+
+Use PostgreSQL with `pgvector` for the minimum private deployment. PostgreSQL full-text search handles exact identifiers and legal wording; pgvector handles semantic embeddings; relational graph tables and recursive queries handle bounded relationship traversal. Add Qdrant only for demonstrated multivector or independently scaled retrieval needs.
+
+Evidence: [PostgreSQL full-text search](https://www.postgresql.org/docs/current/textsearch.html), [PostgreSQL recursive queries](https://www.postgresql.org/docs/current/queries-with.html), and [pgvector](https://github.com/pgvector/pgvector).
 
 Use PostgreSQL for:
 

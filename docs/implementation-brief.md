@@ -4,7 +4,7 @@
 
 This brief is the implementation decision record for the public documentation repository. It describes the runtime; it does not contain private documents, credentials, or a claim of legal compliance.
 
-The supplied synthesis template names three inputs: platform, graph, and stack. In this repository, the available evidence is the stack report in [`README.md`](../README.md) and the task specification in [`odd/tasks/platform-and-graph-rag.md`](../odd/tasks/platform-and-graph-rag.md). A separate platform report and graph report are not present. Decisions that depend on those missing reports are therefore provisional and must be revalidated against the actual corpus and workload.
+The evidence includes the stack report in [`README.md`](../README.md), the task specification in [`odd/tasks/platform-and-graph-rag.md`](../odd/tasks/platform-and-graph-rag.md), and primary-source research for platform delivery, PostgreSQL retrieval, pgvector, Apache AGE, and Microsoft GraphRAG. Performance and corpus-specific decisions remain provisional until the real workload is benchmarked.
 
 No benchmark results are asserted here. The stack report explicitly records that no local benchmark was run and that published project measurements are not directly comparable.
 
@@ -65,7 +65,7 @@ GET  /readyz
 
 ### 2. Initial database and retrieval choice
 
-**Yes: PostgreSQL plus pgvector and relational graph tables are sufficient for the first private implementation**, provided the first release is limited to text/document retrieval, metadata filtering, provenance, memory, and bounded relationship traversal.
+**Yes: PostgreSQL plus pgvector and relational graph tables are sufficient for the first private implementation**, provided the first release is limited to text/document retrieval, metadata filtering, provenance, memory, and bounded relationship traversal. PostgreSQL documents full-text search and recursive queries; pgvector documents HNSW, IVFFlat, filtering, and hybrid retrieval patterns.
 
 Use PostgreSQL for:
 
@@ -204,7 +204,6 @@ Create a small, versioned, synthetic evaluation corpus with expected citations a
 
 ## Open questions
 
-- The missing platform and graph report bodies must be supplied before treating the client and graph decisions as final.
 - The target corpus size, document mix, languages, image volume, retention period, and concurrent-user count are not yet specified.
 - The exact parser and model releases, licenses, hardware requirements, and supported provider APIs require release-specific review.
 - Native mobile, offline access, and remote access remain product decisions, not assumptions of this brief.

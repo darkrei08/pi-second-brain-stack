@@ -1,0 +1,22 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Runtime data: the P.IVA corpus never belongs in this repository
+data/
+private/
+secrets/
+*.db
+*.sqlite
+*.sqlite3
+
+# Local model, parser, and vector artifacts
+models/
+artifacts/
+qdrant-storage/
+postgres-data/
+
+# Local tooling
+.worktrees/
+.pi/
