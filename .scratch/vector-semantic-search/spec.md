@@ -39,3 +39,12 @@ Add a satellite `segment_embeddings` table with unbounded pgvector storage and m
 ## Deferred
 
 Production model/provider integration, HNSW/IVFFlat, vector dimension selection, Qdrant, hybrid ranking, real corpus, gateway, and operational vacuum/reindex policy.
+
+## Market comparison decision
+
+The market comparison does not change the acceptance criteria. It adds these architectural constraints:
+
+- Do not import a prebuilt product's vector table schema into the core.
+- Keep the model and dimension metadata needed to compare or migrate between embedding providers.
+- Preserve the segment and provenance identifiers required to map citations from RAGFlow, R2R, Onyx, or AnythingLLM later.
+- Add hybrid retrieval only in a separate Wayfinder after exact vector behavior is verified.

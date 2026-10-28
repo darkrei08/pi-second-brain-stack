@@ -26,3 +26,15 @@ The next slice is exact provider-neutral semantic search backed by a dedicated P
 - HNSW/IVFFlat indexes and tuning, because corpus size and query workload are not measured.
 - Qdrant, hybrid lexical/vector fusion, HTTP gateway, real corpus embeddings, and provider credentials.
 - Operational vacuum/reindex procedures after large deletion batches.
+
+## Market comparison checkpoint (2026-10-29)
+
+The reusable-data-search comparison of AnythingLLM, Dify, RAGFlow, R2R, Onyx, and Khoj did not invalidate this slice. It reinforces the provider-neutral boundary:
+
+- AnythingLLM validates PostgreSQL/pgvector as a practical product backend but expects a product-owned table schema and fixed embedder dimension.
+- RAGFlow and R2R are stronger references for parser/layout and hybrid/GraphRAG behavior, respectively, but neither should replace the repository's storage contract before synthetic benchmarks.
+- Onyx demonstrates permission-aware hybrid retrieval but adds an OpenSearch-oriented deployment boundary that is unnecessary for the single-user baseline.
+
+Therefore keep exact cosine search, explicit `model_id` and `dimensions`, and no ANN index. Add hybrid fusion, parser benchmarking, and sidecar evaluation as later Wayfinders.
+
+Evidence: `.scratch/rag-market-comparison/research.md` and `.scratch/rag-market-comparison/spec.md`.

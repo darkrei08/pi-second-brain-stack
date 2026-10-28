@@ -23,3 +23,7 @@ A tested semantic retrieval seam that stores synthetic embeddings per segment/mo
 
 - External provider calls, API keys, model downloads, or real P.IVA embeddings.
 - HNSW/IVFFlat, Qdrant, GraphRAG, parser runtimes, HTTP routes, and UI clients.
+
+## Market comparison checkpoint
+
+A bounded comparison of AnythingLLM, Dify, RAGFlow, R2R, Onyx, and Khoj is recorded under `.scratch/rag-market-comparison/`. It confirms that the current exact vector seam should remain provider-neutral. Product-specific schemas, parser runtimes, hybrid ranking, GraphRAG, and UI/API layers are follow-up adapters or benchmarks, not replacements for the repository's system of record.

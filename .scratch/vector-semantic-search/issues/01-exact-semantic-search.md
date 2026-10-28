@@ -18,3 +18,7 @@ Can the existing PostgreSQL store add deterministic semantic retrieval without c
 - [ ] Document deletion cascades to embeddings.
 - [ ] Existing lexical, segmentation, and parser-normalization tests remain green.
 - [ ] No provider, credential, real corpus, model cache, ANN index, or new client dependency is added.
+
+## Market comparison checkpoint
+
+The comparison ticket `.scratch/rag-market-comparison/issues/01-compare-prebuilt-rag-platforms.md` is resolved without replacing this implementation. The exact semantic seam remains the baseline adapter boundary; product-specific hybrid, parser, citation, ACL, and GraphRAG capabilities are deferred to separate Wayfinders.
