@@ -24,6 +24,14 @@ The retrieval adapter should combine:
 
 The application should keep this behind a retrieval interface. It must be possible to replace pgvector with Qdrant without changing clients or the gateway contract.
 
+The current PostgreSQL storage seam exposes `searchSegmentsHybrid({ query, query_embedding, model_id, owner_id, limit, rrf_k })`. It retrieves at most `limit` candidates from each existing lexical and semantic search path, then applies Reciprocal Rank Fusion using one-based ranks:
+
+```text
+rrf(segment) = sum(1 / (rrf_k + rank_i))
+```
+
+The fused result is capped at `limit` and ordered by fused score descending, then `document_id`, `segment_index`, and segment ID ascending. The method preserves stored segment provenance and citation references, scopes both searches to the requested owner and active retention state, and scopes semantic candidates to the requested model and vector dimension. Invalid input is rejected before database access. This is a provider-neutral exact baseline; learned reranking, ANN tuning, and external vector services remain deferred until measured workload evidence justifies them.
+
 ## Relational graph model
 
 Use explicit provenance and ownership on every derived record:

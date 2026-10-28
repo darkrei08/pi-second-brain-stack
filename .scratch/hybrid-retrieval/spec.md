@@ -37,18 +37,18 @@ The method returns the existing segment fields and provenance fields, plus:
 
 ## Acceptance criteria
 
-- [ ] lexical-only candidates are returned with `semantic_rank: null`;
-- [ ] semantic-only candidates are returned with `lexical_rank: null`;
-- [ ] overlapping candidates receive both RRF contributions;
-- [ ] the RRF score and ranks are deterministic across repeated calls;
-- [ ] equal fused scores use document ID, segment index, and segment ID tie-breaks;
-- [ ] owner isolation excludes another owner's lexical and semantic candidates;
-- [ ] tombstone and purged documents are excluded;
-- [ ] model ID and query dimension isolate semantic candidates;
-- [ ] malformed inputs fail before database contact;
-- [ ] provenance citation references and source hashes are preserved;
-- [ ] existing segmentation, parser-normalization, persistence, lexical, and semantic tests remain green;
-- [ ] the implementation uses the existing storage seam and does not add a standalone public export.
+- [x] lexical-only candidates are returned with `semantic_rank: null`;
+- [x] semantic-only candidates are returned with `lexical_rank: null`;
+- [x] overlapping candidates receive both RRF contributions;
+- [x] the RRF score and ranks are deterministic across repeated calls;
+- [x] equal fused scores use document ID, segment index, and segment ID tie-breaks;
+- [x] owner isolation excludes another owner's lexical and semantic candidates;
+- [x] tombstone and purged documents are excluded;
+- [x] model ID and query dimension isolate semantic candidates;
+- [x] malformed inputs fail before database contact;
+- [x] provenance citation references and source hashes are preserved;
+- [x] existing segmentation, parser-normalization, persistence, lexical, and semantic tests remain green;
+- [x] the implementation uses the existing storage seam and does not add a standalone public export.
 
 ## Deferred
 

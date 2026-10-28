@@ -1,7 +1,7 @@
 # 01: Add provider-neutral hybrid retrieval
 
 Type: implementation
-Status: open
+Status: closed
 Blocked by: None
 
 ## Question
