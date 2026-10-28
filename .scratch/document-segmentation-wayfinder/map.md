@@ -12,6 +12,7 @@ This is a local-only repository using Markdown issues. Consult `AGENTS.md`, `doc
 
 - [Choose the document segment contract](issues/01-document-segment-contract.md): use deterministic, parser-neutral segments with contiguous indexes, Unicode code-point spans, exact text hashes, and boundary-aware splitting.
 - [Choose the provenance and citation contract](issues/02-provenance-citation-contract.md): keep opaque document/segment IDs, source and segment hashes, optional page/region coordinates, parser/model lineage, sanitized citations, retention state, and derivation links.
+- [Implement deterministic text segmentation with provenance output](../deterministic-text-segmentation/issues/01-segment-text-with-provenance.md): implemented the pure segmenter and JSON CLI with synthetic public-seam tests.
 
 ## Not yet specified
 
