@@ -27,6 +27,10 @@ The gateway deliberately left answer generation out (decision D1 of `.scratch/ht
 - The owner is always the authenticated identity of the gateway request; the use case receives it and never reads it from the question.
 - No new dependency; the chat adapter uses the injected `fetch` and `AbortSignal.timeout`.
 
+## Result
+
+Implemented and verified on `feat/live-answers` in commit `03331e1`; ticket 01 resolved. The deferred items stay deferred: `POST /v1/chat/completions` and streaming (A6), audit logging and quotas (A7).
+
 ## Exit condition
 
 The slice is done when a question with no evidence produces an answer without a model call, an answer with a forged citation number is downgraded to `high` uncertainty, a provider timeout surfaces as one stable error, and the gateway route is covered end to end against a real database with a fake chat client.
