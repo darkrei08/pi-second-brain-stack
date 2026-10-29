@@ -14,6 +14,8 @@ Current storage has no notion of a conversation, a collection, or a folder: `doc
 
 ## Candidate shells
 
+The wider comparison and its evidence live in `research-ui-landscape.md`.
+
 | Candidate | Licence position | Organization primitives | Evidence |
 |---|---|---|---|
 | LibreChat | MIT | Projects (folder-like), pinned conversations, per-project instructions and files | `research.md` |
@@ -21,15 +23,17 @@ Current storage has no notion of a conversation, a collection, or a folder: `doc
 | AnythingLLM | MIT (self-hosted terms) | Workspaces with threads; folders inside a workspace were closed as not planned | `research.md` |
 | LobeChat | Apache-2.0 with additional commercial conditions from 1.0 | Session groups and pinning | `research.md` |
 
-## Decisions to take
+## Decisions
 
-- V1: which shell is the primary surface (the implementation brief currently recommends LibreChat).
-- V2: whether conversations, pins, and folders live in the shell, in our gateway, or are mirrored in both.
-- V3: whether a folder is only an organizational label or a retrieval scope that filters documents by collection. Verified inputs: Open WebUI can forward `folder_id` to us; LibreChat cannot forward a project id. If V3 is yes, `issues/02-collections-as-retrieval-scope.md` is the implementation.
-- V4: where an attachment goes: the shell's own RAG, or our `/v1/documents/ingest` path.
-- V5: identity and ownership mapping between shell users and our `owner_id`.
-- V6: which retrieval contract we own, a LibreChat-compatible RAG subset or our own ingest-and-query API plus shell glue.
-- V7: whether we accept the shell as a second store for conversations, pins, and folders, with its own backup and deletion boundary.
+- V1: Primary surface: Open WebUI. It is the only evaluated shell that forwards a folder scope (`body.folder_id`, `body.files` readable in an `inlet` filter) and a verified caller identity into an external retrieval hook without patching the shell; its branding clause is inert for a single-owner deployment under fifty end users.
+- V2: The shell owns conversation, pin, and folder state. Our gateway owns document, segment, collection, and citation state. No record type is mirrored between the two; each has exactly one source of truth.
+- V3: A folder is a retrieval scope: a collection reference on documents plus a filter in the retrieval seams. Shell file ids are rejected as the scope because document and shell file identities differ and the hook's file descriptors are not verified to carry our ids.
+- V4: An attachment is ingested into our store through the shell's `file_handler` hook into `POST /v1/documents/ingest`, preserving page and box provenance; deletion follows the existing cascade path in the storage seam.
+- V5: One configured mapping row maps the shell user id to our `owner_id`. `owner_id` is always derived server-side from the authenticated identity and never accepted from a request body.
+- V6: We own an ingest-and-query API plus shell glue: one Open WebUI filter for retrieval and one Pipe to expose research mode as a model. We do not implement the LibreChat RAG contract.
+- V7: The shell is the only store for conversations, pins, and folders. It is an accepted second store, with separate backup and deletion boundaries: conversations in the shell, documents and citations in ours. Nothing about the corpus leaves our store.
+
+UI captures are stored in `.scratch/interface-stack/media/`.
 
 ## Integration findings (verified from source)
 
