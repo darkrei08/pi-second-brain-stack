@@ -1,7 +1,7 @@
 # 02: Collections as a retrieval scope
 
 Type: implementation
-Status: open
+Status: claimed
 Blocked by: None
 
 ## Question
