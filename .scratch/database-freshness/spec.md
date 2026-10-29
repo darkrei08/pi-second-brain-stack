@@ -30,17 +30,17 @@ Also update `searchSegmentsLexical({ query, owner_id, limit })` to require an op
 
 ## Acceptance criteria
 
-- [ ] valid stored citations return `{ valid: true, stale_ids: [] }`;
-- [ ] malformed owner, collection, hash, identity, duplicate, and oversized-batch inputs fail before database contact;
-- [ ] tombstone and purged documents are returned as stale;
-- [ ] missing/deleted segments are returned as stale;
-- [ ] another owner's citation is returned as stale;
-- [ ] source-hash and segment-hash mutation/re-ingestion is returned as stale;
-- [ ] stale IDs preserve input order and valid batches never return stale IDs;
-- [ ] the check uses one bounded parameterized PostgreSQL query;
-- [ ] lexical search rejects non-opaque owners and limits above 100;
-- [ ] existing public and integration tests remain green;
-- [ ] no private corpus or external runtime is introduced.
+- [x] valid stored citations return `{ valid: true, stale_ids: [] }`;
+- [x] malformed owner, collection, hash, identity, duplicate, and oversized-batch inputs fail before database contact;
+- [x] tombstone and purged documents are returned as stale;
+- [x] missing/deleted segments are returned as stale;
+- [x] another owner's citation is returned as stale;
+- [x] source-hash and segment-hash mutation/re-ingestion is returned as stale;
+- [x] stale IDs preserve input order and valid batches never return stale IDs;
+- [x] the check uses one bounded parameterized PostgreSQL query;
+- [x] lexical search rejects non-opaque owners and limits above 100;
+- [x] existing public and integration tests remain green;
+- [x] no private corpus or external runtime is introduced.
 
 ## Deferred
 
