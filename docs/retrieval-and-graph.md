@@ -30,7 +30,7 @@ The current PostgreSQL storage seam exposes `searchSegmentsHybrid({ query, query
 rrf(segment) = sum(1 / (rrf_k + rank_i))
 ```
 
-The fused result is capped at `limit` and ordered by fused score descending, then `document_id`, `segment_index`, and segment ID ascending. The method preserves stored segment provenance and citation references, scopes both searches to the requested owner and active retention state, and scopes semantic candidates to the requested model and vector dimension. Invalid input is rejected before database access. This is a provider-neutral exact baseline; learned reranking, ANN tuning, and external vector services remain deferred until measured workload evidence justifies them.
+The fused result is capped at `limit` and ordered by fused score descending, then `document_id`, `segment_index`, and segment ID ascending. Each fused match carries the same segment fields as the individual seams, including the segment `id`, plus `hybrid_score`, `lexical_rank`, and `semantic_rank`. The method preserves stored segment provenance and citation references, scopes both searches to the requested owner and active retention state, and scopes semantic candidates to the requested model and vector dimension. Invalid input is rejected before database access. This is a provider-neutral exact baseline; learned reranking, ANN tuning, and external vector services remain deferred until measured workload evidence justifies them.
 
 ### Collection scope
 
