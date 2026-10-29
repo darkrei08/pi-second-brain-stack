@@ -1,7 +1,7 @@
 # 01: Add a provider-neutral citation resolver
 
 Type: implementation
-Status: open
+Status: resolved
 Blocked by: None
 
 ## Question
