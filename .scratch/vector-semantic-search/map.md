@@ -11,6 +11,7 @@ A tested semantic retrieval seam that stores synthetic embeddings per segment/mo
 - Use exact flat cosine search with owner, active-retention, and model pre-filters.
 - Validate vectors at the Node trust boundary and use parameterized `$N::vector` SQL.
 - Cascade embeddings from document deletion through segments.
+- Ticket 01 is resolved with its implementation and evidence listed in `issues/01-exact-semantic-search.md`.
 
 ## Not yet specified
 

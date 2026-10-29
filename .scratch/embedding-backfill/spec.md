@@ -51,18 +51,18 @@ Returns:
 
 ## Acceptance criteria
 
-- [ ] malformed or out-of-range inputs fail before database access, and an unregistered model fails closed at the registry lookup;
-- [ ] documents with missing embeddings are listed with the complete ordered segment set;
-- [ ] documents with dimension-mismatched embeddings are listed and classified as mismatched, not missing;
-- [ ] documents owned by another owner or outside active retention are never listed;
-- [ ] documents whose embeddings are correct for the requested model are not listed;
-- [ ] after `saveSegmentEmbeddings` writes the complete set, the document disappears from the next plan;
-- [ ] a dimension-mismatched document is repairable by a complete rewrite with the registered dimensions, even while another owner keeps stale rows for the same model;
-- [ ] a partial write whose dimensions conflict with an existing row of the same model still fails closed;
-- [ ] plans are deterministic across repeated calls and respect `limit` with `document_id` ordering;
-- [ ] deprecated models remain plannable and report their registered status;
-- [ ] the plan never mutates storage and returns no text or vectors;
-- [ ] existing public and integration tests remain green.
+- [x] malformed or out-of-range inputs fail before database access, and an unregistered model fails closed at the registry lookup;
+- [x] documents with missing embeddings are listed with the complete ordered segment set;
+- [x] documents with dimension-mismatched embeddings are listed and classified as mismatched, not missing;
+- [x] documents owned by another owner or outside active retention are never listed;
+- [x] documents whose embeddings are correct for the requested model are not listed;
+- [x] after `saveSegmentEmbeddings` writes the complete set, the document disappears from the next plan;
+- [x] a dimension-mismatched document is repairable by a complete rewrite with the registered dimensions, even while another owner keeps stale rows for the same model;
+- [x] a partial write whose dimensions conflict with an existing row of the same model still fails closed;
+- [x] plans are deterministic across repeated calls and respect `limit` with `document_id` ordering;
+- [x] deprecated models remain plannable and report their registered status;
+- [x] the plan never mutates storage and returns no text or vectors;
+- [x] existing public and integration tests remain green.
 
 ## Deferred
 

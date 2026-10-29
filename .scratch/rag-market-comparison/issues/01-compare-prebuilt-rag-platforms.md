@@ -21,3 +21,7 @@ Can an existing open-source/self-hosted RAG product replace or materially reduce
 ## Outcome
 
 Keep the repository core and exact pgvector seam. Reuse ideas and, if warranted later, run RAGFlow or R2R as synthetic-fixture sidecars. Do not replace the storage and provenance contracts with a whole prebuilt product before benchmark evidence exists.
+
+## Answer
+
+Resolved as a research ticket: the comparison and its decision are recorded under `## Outcome`, and the resulting implementation boundary lives in `.scratch/vector-semantic-search/map.md`. No code seam ships from this ticket by design.

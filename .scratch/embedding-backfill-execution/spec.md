@@ -45,15 +45,15 @@ Returns:
 
 ## Acceptance criteria
 
-- [ ] malformed inputs and a storage object missing a required seam fail closed before any database access;
-- [ ] a planned document is embedded and written with its complete segment set and the stored `created_at`;
-- [ ] an empty plan returns zero counters and never calls `embed`;
-- [ ] a document that changed since the plan, or left active retention, is skipped with a reason and never written;
-- [ ] an embedder that returns the wrong number of vectors fails closed and writes nothing;
-- [ ] an embedder failure propagates while earlier documents stay committed;
-- [ ] skipped documents are reported in plan order;
-- [ ] after a full run, coverage inspection reports no missing or mismatched segments for that owner and model, and a second run processes nothing;
-- [ ] existing segmentation, parser, persistence, lexical, semantic, hybrid, citation, freshness, registry, coverage, and planning tests remain green.
+- [x] malformed inputs and a storage object missing a required seam fail closed before any database access;
+- [x] a planned document is embedded and written with its complete segment set and the stored `created_at`;
+- [x] an empty plan returns zero counters and never calls `embed`;
+- [x] a document that changed since the plan, or left active retention, is skipped with a reason and never written;
+- [x] an embedder that returns the wrong number of vectors fails closed and writes nothing;
+- [x] an embedder failure propagates while earlier documents stay committed;
+- [x] skipped documents are reported in plan order;
+- [x] after a full run, coverage inspection reports no missing or mismatched segments for that owner and model, and a second run processes nothing;
+- [x] existing segmentation, parser, persistence, lexical, semantic, hybrid, citation, freshness, registry, coverage, and planning tests remain green.
 
 ## Deferred
 

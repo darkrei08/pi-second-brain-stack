@@ -43,6 +43,7 @@ storage.searchSegmentsHybrid({
 - Return the existing segment/provenance fields plus `hybrid_score`, `lexical_rank`, and `semantic_rank`.
 - Reject malformed input before either database query.
 - Keep the implementation provider-neutral and schema-free.
+- Ticket 01 is resolved with its implementation and evidence listed in `issues/01-hybrid-search.md`.
 
 ## Deferred
 

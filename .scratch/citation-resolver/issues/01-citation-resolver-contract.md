@@ -26,3 +26,7 @@ Verification: implementation is on the current branch; focused and full suites, 
 ## Non-goals
 
 Fresh database reads, URL resolution, document rendering, model lifecycle, graph extraction, parser benchmarking, ANN indexing, gateway routes, authentication, and live answer generation.
+
+## Answer
+
+Implemented `resolveCitations` in `src/citation-resolver.js` and exported it from `src/index.js` (commit `3d61852`, closure `7ca9cbf`). It maps retrieval results to prompt-ready evidence blocks and fails closed on owner, active retention, text and source hashes, IDs, citation reference, location, lineage, label, confidence, and batch integrity. Evidence: `test/citation-resolver.test.js` and the matching row in `odd/traceability.md`.

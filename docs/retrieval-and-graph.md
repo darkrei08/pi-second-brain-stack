@@ -5,8 +5,8 @@
 The first private deployment uses PostgreSQL as the system of record:
 
 - `tsvector` and PostgreSQL full-text search for lexical retrieval;
-- `pgvector` for embeddings and approximate nearest-neighbor search;
-- relational tables for documents, chunks, entities, relationships, citations, jobs, and audit;
+- `pgvector` for embeddings with an exact, model- and dimension-scoped nearest-neighbor scan (ANN indexes are deferred until measured workload evidence justifies them);
+- relational tables for documents, segments, entities, relationships, citations, jobs, and audit;
 - recursive SQL for bounded graph traversal;
 - one transaction boundary for metadata, provenance, access policy, and deletion.
 
@@ -54,16 +54,18 @@ Before an answer consumes retrieved text, `resolveCitations(results, { owner_id,
 
 ## Relational graph model
 
-Use explicit provenance and ownership on every derived record:
+Use explicit provenance and ownership on every derived record. The first four tables exist today; the graph tables are the target shape and are not implemented:
 
 ```text
-documents(id, sha256, source_uri, media_type, created_at, retention_state)
-chunks(id, document_id, page, region, text, search_vector, embedding)
-graph_nodes(id, kind, canonical_key, label, provenance_chunk_id)
-graph_edges(id, source_node_id, relation, target_node_id, provenance_chunk_id, confidence)
+documents(document_id, source_hash, source_label, text, lineage, created_at, owner_id, retention_state)
+segments(id, document_id, segment_index, text, start_offset, end_offset, text_sha256, metadata, provenance, search_vector)
+segment_embeddings(segment_id, model_id, dimensions, embedding, created_at)
+embedding_models(model_id, dimensions, status)
+graph_nodes(id, kind, canonical_key, label, provenance_segment_id)
+graph_edges(id, source_node_id, relation, target_node_id, provenance_segment_id, confidence)
 ```
 
-The exact schema is implementation work. The non-negotiable properties are stable identifiers, source links, confidence, timestamps, deletion ownership, and indexes for source/target/relation. A graph edge without provenance is not trusted evidence.
+The exact graph schema is implementation work. The non-negotiable properties are stable identifiers, source links, confidence, timestamps, deletion ownership, and indexes for source/target/relation. A graph edge without provenance is not trusted evidence.
 
 ## GraphRAG is a query strategy, not automatically a second database
 

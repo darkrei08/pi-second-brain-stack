@@ -324,4 +324,4 @@ Use MinerU as the primary PDF/document parser when its output is best for the co
 
 ## Sources and retrieval metadata
 
-Primary sources were consulted on 2026-10-28 using Pi `web_search` and `rich_fetch`. Repository and official documentation pages were treated as current at retrieval time; project claims about performance were marked as project claims and should be independently benchmarked before production adoption.
+Primary sources were consulted on 2026-10-28 using Pi `web_search` and direct page retrieval. Repository and official documentation pages were treated as current at retrieval time; project claims about performance were marked as project claims and should be independently benchmarked before production adoption.

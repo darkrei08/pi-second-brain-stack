@@ -17,9 +17,9 @@ Add a satellite `segment_embeddings` table with unbounded pgvector storage and m
 
 ## Invariants
 
-- Every stored embedding belongs to an existing segment of the owner-scoped active document.
-- A model ID identifies one vector space; search never compares different models.
-- Every vector has the declared positive dimension, finite numeric values, and non-zero norm.
+- Every embedding is written only for an existing segment of an active, owner-scoped document; a later retention change leaves the rows in place and search and coverage exclude them through the join on `documents`.
+- A model ID identifies the vector space of its registry row and search never compares different models; stored embeddings carry their own `dimensions`, a write is rejected only when it conflicts with an existing row of the same model, and divergence from the registry is reported as `dimension_mismatch_segments` instead of being rejected.
+- Every vector written by the adapter has the declared positive dimension, finite numeric values, and non-zero norm; the database stores the declared dimension independently of the vector and search filters on that column, so a drifted row stays out of results until a backfill repairs it.
 - All SQL vector values are parameterized and cast with `$N::vector`.
 - Search returns only active documents owned by the requested owner and the requested model.
 - Document deletion cascades through segments to embeddings.
