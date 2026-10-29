@@ -60,9 +60,11 @@ curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application
 
 ## OpenAI-compatible chat completions
 
-`POST /v1/chat/completions` accepts a buffered OpenAI-shaped request. Send one non-empty user message; the request's `model` is required for client compatibility but the gateway always uses `ANSWER_MODEL`. Retrieval controls are `collection_ids`, `embedding_model_id`, `limit` (1-100, default 6), and `max_tokens` (1-8192, default 600). Streaming (`stream: true`), tools, other roles, and other options are currently rejected. A request with no evidence gets the same insufficient-evidence answer as `/v1/answers`, without a model call.
+`POST /v1/chat/completions` accepts one non-empty user message; the request's `model` is required for client compatibility but the gateway always uses `ANSWER_MODEL`. Retrieval controls are `collection_ids`, `embedding_model_id`, `limit` (1-100, default 6), and `max_tokens` (1-8192, default 600). Tools, other roles, and other options are rejected. A request with no evidence gets the same insufficient-evidence answer as `/v1/answers`, without a model call.
 
-The response uses the OpenAI `chat.completion` shape (`id`, `created`, `model`, and `choices`) and adds `answer_metadata` with `citations`, `unresolved_citations`, `stale_citations`, `retrieval`, and `uncertainty`. This extension preserves the gateway's citation and uncertainty report; clients that only understand standard OpenAI fields can still display `choices[0].message.content` and ignore the extension.
+Without `stream: true`, the response uses the OpenAI `chat.completion` shape (`id`, `created`, `model`, and `choices`) and adds `answer_metadata` with `citations`, `unresolved_citations`, `stale_citations`, `retrieval`, and `uncertainty`. With `stream: true`, the gateway emits OpenAI-compatible SSE content chunks and adds `answer_metadata` to the final completion chunk only after citation revalidation. It then emits `data: [DONE]`. `answer_metadata` is an extension; clients that only understand standard OpenAI chunks can ignore it and will not display the citation/uncertainty report. If an error occurs before the first content chunk, the gateway returns its stable JSON error; after SSE starts, it emits a sanitized `data: {"error":...}` event and ends without metadata or `[DONE]`. Disconnecting the client aborts upstream reading.
+
+Buffered request:
 
 ```bash
 curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \\
@@ -70,7 +72,15 @@ curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application
   http://127.0.0.1:8080/v1/chat/completions
 ```
 
-Streaming remains gated on review of the metadata contract recorded in `.scratch/gateway-clients/map.md`. The Open WebUI filter and Pipe are not implemented yet. TLS termination remains the responsibility of an operator-controlled reverse proxy and is not included in the loopback gateway.
+Stream request:
+
+```bash
+curl -N -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \\
+  -d '{"model":"any-client-model","messages":[{"role":"user","content":"when does the contract expire?"}],"stream":true}' \\
+  http://127.0.0.1:8080/v1/chat/completions
+```
+
+The Open WebUI filter and Pipe are not implemented yet. TLS termination remains the responsibility of an operator-controlled reverse proxy and is not included in the loopback gateway.
 
 ## Verify the package
 

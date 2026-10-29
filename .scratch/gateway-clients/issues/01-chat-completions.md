@@ -1,7 +1,7 @@
 # 01: OpenAI-compatible grounded chat completions
 
 Type: implementation
-Status: claimed
+Status: resolved
 Blocked by: None
 
 ## Question
@@ -27,4 +27,4 @@ Tool calls, multiple choices, full multi-turn conversation handling, usage accou
 
 Implemented the buffered OpenAI-compatible response at `POST /v1/chat/completions`. It accepts exactly one non-empty user message, ignores the caller's model selection in favor of configured `ANSWER_MODEL`, rejects unsupported options and `stream: true`, and uses `answerQuestion` for retrieval, citation revalidation, and uncertainty. The response includes standard completion fields plus `answer_metadata`; empty evidence bypasses the model.
 
-Verification before native review: `npm test` passed 82 tests, skipped 22 expected database-dependent tests, failed 0, exit 0. The disposable pgvector/pg17 integration suite passed 26/26, exit 0, including a real HTTP/database chat-completions round trip with a fake chat adapter. No real provider round trip or installed-shell verification is claimed. Native review and acknowledgement are pending.
+Verification: `npm test` passed 82 tests, skipped 22 expected database-dependent tests, failed 0, exit 0. The disposable pgvector/pg17 integration suite passed 26/26, exit 0, including a real HTTP/database chat-completions round trip with a fake chat adapter. No real provider round trip or installed-shell verification is claimed. Native review `review-08f4a41323737f7f` was approved and acknowledged for commit `f5a3ee6`; its only advisory was a suggestion about the test assertion message, with no blocking findings.

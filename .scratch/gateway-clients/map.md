@@ -19,18 +19,19 @@ Expose the grounded gateway to chat clients, deliver Open WebUI retrieval glue, 
 
 - The existing answer use case reports citations only after citation revalidation; streaming text cannot include that report at the start of the response.
 - A read-only architecture challenge of the SSE contract recommended a final chunk extension, preserving OpenAI chunk fields and `[DONE]`, while noting strict clients may ignore `answer_metadata`. It recommended rejecting unsupported stream options and sending sanitized SSE errors after headers without `[DONE]`.
-- The review gate for C3 is pending. Do not implement the streaming provider/route until that review records whether the decision survives.
+- Independent workflow review `gateway-clients-sse-contract-review` (`122645ae-74d7-40fc-8f2f-b13fae442fd0`) returned APPROVE from architect (`cliproxyapi/gpt-6-luna:high`), security (`cliproxyapi/gpt-5.6-luna:high`), and compatibility reviewer (`cliproxyapi/gemini-3.8-flash-high:medium`); a `cliproxyapi/gpt-6-luna:high` synthesizer confirmed C3 survives. Reviewers require that the terminal metadata chunk and `[DONE]` follow citation revalidation, and that stream errors remain sanitized. Strict clients may ignore the extension.
+- The stream implementation is covered by upstream chunk-boundary, malformed/incomplete body, provider-error-body, consumer-cancel, and gateway tests for grounded and empty answers, metadata ordering, pre-header JSON failures, post-header error sanitization, and client disconnect. Full suite: 91 passed / 22 expected skips / 0 failed (exit 0). Focused provider/answer/gateway suites passed 42/42 (exit 0). Differential check of authenticated `POST /v1/answers` produced byte-identical status/body against base `HEAD`. Disposable `pgvector/pgvector:pg17` integration: 26/26 passed (exit 0), including a real HTTP/database streaming round trip using a fake provider. Real provider compatibility and installed Open WebUI shell behavior remain unverified.
 
 ## Work units
 
-1. OpenAI-compatible non-streaming chat completions.
-2. Review C3; if accepted, add streaming; otherwise record the reviewed alternative and do not stream.
+1. OpenAI-compatible non-streaming chat completions (`f5a3ee6`, native review acknowledged).
+2. Review the C3 metadata contract (workflow `122645ae-74d7-40fc-8f2f-b13fae442fd0`), then implement OpenAI-compatible streaming (`.scratch/gateway-clients/issues/02-streaming-chat-completions.md`; implementation verified, commit and native review pending).
 3. Open WebUI inlet filter and research-mode Pipe.
 4. Record TLS, metrics, and deployment packaging as deferred above unless repository evidence supplies their missing product/deployment constraints.
 
 ## Current status
 
-The buffered `POST /v1/chat/completions` route is implemented in the working tree and maps a single user message to `answerQuestion`; it returns an OpenAI `chat.completion` envelope plus `answer_metadata`. The caller cannot select the configured provider model or owner. `stream: true` remains rejected until C3 survives independent review. The first implementation verification passed `npm test` (82 passed, 22 expected skips, 0 failed, exit 0) and the disposable pgvector/pg17 integration suite (26/26, exit 0) using a fake chat adapter. Native review/acknowledgement is pending.
+The buffered `POST /v1/chat/completions` route is committed as `f5a3ee6`; it and the new `stream: true` path map a single user message to `answerQuestion`. The caller cannot select the configured provider model or owner. C3 survived independent workflow review. Streaming sends content deltas as OpenAI-compatible SSE, then a terminal chunk with `answer_metadata` after citation revalidation, followed by `[DONE]`; failures after SSE starts are sanitized and omit metadata and `[DONE]`, and client disconnects abort upstream reading. Verification after the implementation: `npm test` passed 91, skipped 22 expected database-dependent tests, failed 0 (exit 0); disposable `pgvector/pgvector:pg17` integration passed 26/26 (exit 0), including a real HTTP/database streaming round trip through a fake provider. Focused provider/answer/gateway tests passed 42/42 (exit 0). The authenticated `/v1/answers` differential against base `HEAD` returned identical status and body. The implementation commit and its native review are pending. The non-streaming work-unit review `review-08f4a41323737f7f` was approved and acknowledged; its only advisory was non-blocking and no correction was required.
 
 ## Validation boundary
 
