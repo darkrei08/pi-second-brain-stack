@@ -2,7 +2,7 @@
 
 Type: implementation
 Status: open
-Blocked by: 01
+Blocked by: None
 
 ## Question
 
@@ -15,6 +15,7 @@ Verified evidence in `../research-integration.md`:
 - Open WebUI exposes `folder_id` to an `inlet` filter before the pipeline pops it, so a folder can be forwarded as a scope.
 - LibreChat does not forward a project id: `entity_id` carries the agent id only, so its projects cannot scope retrieval without patching the shell.
 - Both integration paths therefore need the scope to exist on our side first. Neither shell's own folder concept can replace it.
+- Decision V3: a folder is a retrieval scope, implemented as a collection reference persisted on documents and applied by retrieval filters. The shell's file ids are not the scope.
 
 ## Scope
 
@@ -26,11 +27,13 @@ Verified evidence in `../research-integration.md`:
 
 ## Acceptance criteria
 
-- [ ] a document can be ingested into zero, one, or many collections of its owner;
+- [ ] a document has a persisted collection reference and can be ingested into zero, one, or many collections of its owner;
 - [ ] a collection cannot reference a document of another owner, and an unknown or foreign collection fails closed before any write;
-- [ ] retrieval with a collection filter returns only segments of that collection, and without one returns exactly what it returns today;
-- [ ] deleting a collection leaves its documents and their embeddings intact and removes only the memberships;
-- [ ] deleting a document removes its memberships and its embeddings as today;
+- [ ] lexical, semantic, and hybrid retrieval accept an optional collection scope and return only segments of that collection; without one, each returns exactly what it returns today;
+- [ ] an owner-isolation test proves that a scoped query cannot return another owner's segment or a segment from another collection;
+- [ ] deleting a collection cascades deletion of its collection references/memberships while leaving its documents and embeddings intact;
+- [ ] deleting a document removes its collection references/memberships and its embeddings as today;
+- [ ] the implementation documents rejection of the shell file-id shortcut as the retrieval scope;
 - [ ] existing segmentation, parser, persistence, semantic, hybrid, citation, freshness, registry, coverage, planning, execution, and mode tests remain green;
 - [ ] no shell, plugin, HTTP route, dependency, or second vector store is added.
 
