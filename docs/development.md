@@ -42,7 +42,7 @@ export ANSWER_API_KEY='local-key'
 npm start
 ```
 
-`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, `POST /v1/chat/completions`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
+`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, `POST /v1/research`, `POST /v1/chat/completions`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
 
 ```bash
 curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
@@ -56,6 +56,16 @@ curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application
 curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
   -d '{"question":"when does the contract expire?"}' \
   http://127.0.0.1:8080/v1/answers
+```
+
+## Bounded research
+
+`POST /v1/research` accepts the same fields as `/v1/answers` and returns the same answer, citation, retrieval, and uncertainty fields. It retrieves for the original question, makes at most one planner call, and uses up to two valid follow-up queries for a maximum of three retrieval rounds. Follow-ups are strict JSON strings of at most 256 characters; malformed plans stop expansion. Every round keeps the authenticated owner, collection scope, and embedding model unchanged. Results are deduplicated by segment id in first-seen order and capped at the request's `limit`; one final synthesis runs over that evidence. Empty initial evidence skips planning and synthesis, while a follow-up that adds no new evidence stops further retrieval. Citation provenance and freshness are revalidated before the response.
+
+```bash
+curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
+  -d '{"question":"when does the contract expire?","collection_ids":["synthetic-collection-alpha"],"limit":12}' \
+  http://127.0.0.1:8080/v1/research
 ```
 
 ## OpenAI-compatible chat completions

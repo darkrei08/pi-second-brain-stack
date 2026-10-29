@@ -1,7 +1,7 @@
 # 02: Stream grounded chat completions
 
 Type: implementation
-Status: claimed
+Status: resolved
 Blocked by: None
 
 ## Question
@@ -30,4 +30,4 @@ Tool calls, usage accounting, multiple choices, resumable streams, heartbeat eve
 
 ## Answer
 
-Implementation and tests are complete. Verification: focused streaming suites passed 42/42 (exit 0); `npm test` passed 91, skipped 22 expected DB-dependent tests, failed 0 (exit 0); disposable `pgvector/pgvector:pg17` integration passed 26/26 (exit 0), including a real HTTP/database streaming round trip using a fake provider. A base-vs-change differential for authenticated `POST /v1/answers` produced byte-identical status and body. No real provider or installed Open WebUI shell was used. Commit and native review/acknowledgement are pending.
+Implementation and tests are complete. Verification: focused streaming suites passed 42/42 (exit 0); `npm test` passed 91, skipped 22 expected DB-dependent tests, failed 0 (exit 0); disposable `pgvector/pgvector:pg17` integration passed 26/26 (exit 0), including a real HTTP/database streaming round trip using a fake provider. A base-vs-change differential for authenticated `POST /v1/answers` produced byte-identical status and body. No real provider or installed Open WebUI shell was used. Commit: `e9adac3` (`feat(gateway): stream chat completions`). Native review `review-428470267472bd49` approved and was acknowledged. Risk: none.
