@@ -18,6 +18,7 @@ Missing before this Wayfinder: any HTTP server, any authentication, any boundary
 - D4: `owner_id` is always derived server-side. The mapping from a shell user id to `owner_id` is deployment configuration (`GATEWAY_SHELL_USERS`), not corpus state, because a single owner deploys one gateway and the mapping describes that deployment. A request that names an owner, or a shell user outside the mapping, fails closed. No fallback owner exists when a mapping is configured.
 - D5: A document keeps its client-declared `document_id`, validated by the existing pattern. Generating it server-side would break re-ingest idempotency and provenance continuity, and the id is not an authorization boundary: ownership comes from the derived `owner_id`, and the storage seam already refuses to overwrite a document owned by someone else.
 - D6: `/readyz` proves storage reachability by issuing a real read. It deliberately does not depend on the registry's contents, only on the query succeeding.
+- D8: `GET /healthz` and `GET /readyz` answer without authentication, because a supervisor probes them and neither reads a credential or a document; every other path authenticates before routing, so an unauthenticated caller cannot tell a known path from an unknown one. A non-loopback bind is a deliberate operator choice and is documented rather than forbidden.
 - D7: No new dependency. `node:http`, `node:crypto`, and the existing `pg` in the composition root only. The server module receives storage and an optional embedder as injected functions and never imports `pg` or `postgres-store.js`.
 
 ## Boundary rules
@@ -26,6 +27,10 @@ Missing before this Wayfinder: any HTTP server, any authentication, any boundary
 - Bodies are JSON, capped at 1 MiB, and rejected before parsing when `Content-Length` exceeds the cap.
 - Errors are compact JSON with a stable code and never contain stack traces, SQL, filesystem paths, token material, document text, or existence proofs.
 - No corpus, credential, provider endpoint, or licence material enters the repository.
+
+## Result
+
+Implemented and verified on `feat/http-gateway`: commits `b9bedd7` (config and authenticator), `ac35b32` (server, handlers, composition root, docs), `230bf1a` (review findings). Ticket `.scratch/http-gateway/issues/01-http-gateway.md` is resolved.
 
 ## Exit condition
 
