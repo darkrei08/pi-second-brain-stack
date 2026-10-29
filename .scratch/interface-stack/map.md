@@ -28,6 +28,12 @@ Current storage has no notion of a conversation, a collection, or a folder: `doc
 - V3: whether a folder is only an organizational label or a retrieval scope that filters documents by collection.
 - V4: where an attachment goes: the shell's own RAG, or our `/v1/documents/ingest` path.
 - V5: identity and ownership mapping between shell users and our `owner_id`.
+- V6: which retrieval contract we own, a LibreChat-compatible RAG subset or our own ingest-and-query API plus shell glue.
+- V7: whether we accept the shell as a second store for conversations, pins, and folders, with its own backup and deletion boundary.
+
+## Integration findings
+
+`research-integration.md` records what each shell demands from us. LibreChat routes chat through `endpoints.custom[].baseURL`, but for custom endpoints it forces attachments through its own RAG service (`RAG_API_URL`, routes `/query`, `/query_multiple`, `/text`, and document management), so keeping one provenance store means implementing that contract over our storage, including its authorization model. Open WebUI can delegate retrieval to an external service from a Filter function with `file_handler`, and a Pipe can expose the external RAG as a model, so it keeps our corpus as the only store at the cost of a licence that restricts branding above 50 users.
 
 ## Known gap
 
