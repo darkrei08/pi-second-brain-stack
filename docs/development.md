@@ -35,10 +35,12 @@ export GATEWAY_OWNER_ID=operator-owner
 # optional: map shell user ids to owners, and an optional embedder for hybrid mode
 export GATEWAY_SHELL_USERS='{"shell-user":"operator-owner"}'
 export EMBEDDING_BASE_URL='http://127.0.0.1:11434/v1'
+# optional: an OpenAI-compatible chat model for grounded answers
+export ANSWER_BASE_URL='http://127.0.0.1:11434/v1'
 npm start
 ```
 
-`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
+`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
 
 ```bash
 curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
@@ -46,7 +48,15 @@ curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application
   http://127.0.0.1:8080/v1/retrieval/query
 ```
 
-Answer generation (`/v1/chat/completions`, `/v1/research`), the Open WebUI filter and pipe, and TLS termination are not implemented.
+`POST /v1/answers` answers only from retrieved evidence and reports its own uncertainty (`none`, `low`, `high`, `unsupported`). It answers `503` when `ANSWER_BASE_URL` is unset, and it never calls the model when retrieval returns nothing.
+
+```bash
+curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
+  -d '{"question":"when does the contract expire?"}' \
+  http://127.0.0.1:8080/v1/answers
+```
+
+The OpenAI-compatible `POST /v1/chat/completions` entry, streaming, the Open WebUI filter and pipe, and TLS termination are not implemented.
 
 ## Verify the package
 
