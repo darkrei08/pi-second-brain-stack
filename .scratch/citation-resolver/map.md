@@ -57,6 +57,7 @@ The method returns validated evidence blocks and fails closed on any invalid res
 - Require sanitized citation labels and finite confidence in `0..1`.
 - Reject the whole batch if any result fails validation.
 - Keep output free of full source documents, filesystem paths, credentials, private corpus data, or network-derived content.
+- Ticket 01 is resolved with its implementation and evidence listed in `issues/01-citation-resolver-contract.md`.
 
 ## Deferred
 
