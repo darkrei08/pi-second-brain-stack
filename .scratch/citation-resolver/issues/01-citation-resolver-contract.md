@@ -10,16 +10,18 @@ Can retrieved segments be validated and mapped into answer-ready evidence blocks
 
 ## Acceptance criteria
 
-- [ ] `resolveCitations(results, options)` is a public pure function.
-- [ ] Exact text and source/segment hashes are validated before output.
-- [ ] Owner, active retention, document/segment IDs, citation ref, and character span are validated.
-- [ ] Citation labels, lineage, location, and confidence are validated and preserved.
-- [ ] Low-confidence results are rejected using `min_confidence`.
-- [ ] Tombstone, purged, cross-owner, malformed, and mismatched results fail closed.
-- [ ] A batch never returns partial output after one invalid result.
-- [ ] Synthetic public tests cover valid evidence and every named rejection case.
-- [ ] Existing repository tests remain green.
-- [ ] No database, network, LLM, dependency, schema, private data, or credential is added.
+- [x] `resolveCitations(results, options)` is a public pure function.
+- [x] Exact text and source/segment hashes are validated before output.
+- [x] Owner, active retention, document/segment IDs, citation ref, and character span are validated.
+- [x] Citation labels, lineage, location, and confidence are validated and preserved.
+- [x] Low-confidence results are rejected using `min_confidence`.
+- [x] Tombstone, purged, cross-owner, malformed, and mismatched results fail closed.
+- [x] A batch never returns partial output after one invalid result.
+- [x] Synthetic public tests cover valid evidence and every named rejection case.
+- [x] Existing repository tests remain green.
+- [x] No database, network, LLM, dependency, schema, private data, or credential is added.
+
+Verification: implementation is on the current branch; focused and full suites, pgvector integration, Debian/Alpine container checks, package dry-runs, syntax, privacy, Compose, and diff checks pass.
 
 ## Non-goals
 

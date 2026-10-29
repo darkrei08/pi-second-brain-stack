@@ -44,17 +44,19 @@ Input `results` are segment retrieval results from the existing storage seams. O
 
 ## Acceptance criteria
 
-- [ ] valid synthetic segment results map to prompt-ready evidence blocks;
-- [ ] source and segment hashes are recomputed and validated;
-- [ ] document/segment IDs, citation ref, source hash, and character span mismatches fail closed;
-- [ ] another owner, tombstone, and purged results are rejected;
-- [ ] malformed labels, lineage, confidence, and location fail closed;
-- [ ] confidence below `min_confidence` is rejected;
-- [ ] normalized page/bounding-box metadata is preserved exactly;
-- [ ] batches reject without returning partial output;
-- [ ] the public export is available through `src/index.js`;
-- [ ] existing segmentation, parser, persistence, lexical, semantic, and hybrid tests remain green;
-- [ ] no private corpus, path, credential, model cache, network service, or LLM is introduced.
+- [x] valid synthetic segment results map to prompt-ready evidence blocks;
+- [x] source and segment hashes are recomputed and validated;
+- [x] document/segment IDs, citation ref, source hash, and character span mismatches fail closed;
+- [x] another owner, tombstone, and purged results are rejected;
+- [x] malformed labels, lineage, confidence, and location fail closed;
+- [x] confidence below `min_confidence` is rejected;
+- [x] normalized page/bounding-box metadata is preserved exactly;
+- [x] batches reject without returning partial output;
+- [x] the public export is available through `src/index.js`;
+- [x] existing segmentation, parser, persistence, lexical, semantic, and hybrid tests remain green;
+- [x] no private corpus, path, credential, model cache, network service, or LLM is introduced.
+
+Verification: focused citation suite 4/4; host suite 17 pass with 7 expected PostgreSQL skips; isolated pgvector/pg17 integration 9/9; Debian and Alpine Node 22.23.3 container suites 17 pass with 7 expected skips; package dry-runs, syntax, privacy, Compose config, and diff checks pass.
 
 ## Deferred
 
