@@ -41,7 +41,9 @@ Yes. Answers are produced only from numbered evidence, and the uncertainty of an
 
 A defect the integration test forced into the open: when a document's stored segments hold provenance that no longer matches the document row, `resolveCitations` threw and the request failed as a caller error. The use case now treats such evidence as unusable and reports it, because the caller did nothing wrong and the answer must not cite it.
 
-Verification: unit 78 pass / 20 expected skips / 0 fail; live pgvector/pg17 integration 24/24 including an HTTP answer round trip with a fake chat adapter, a no-evidence question that made no model call, and a tampered document that downgraded to `high` with one stale citation; Alpine `node:22-alpine` matrix identical. Commit `03331e1`.
+A review panel then found four defects, fixed in `38a0aee`: one `model_id` was serving both the embedder and the chat endpoint (now `ANSWER_MODEL` for chat and `embedding_model_id` for hybrid retrieval only), the 15 s request timeout killed an answer before its own model timeout (now 120 s), provider and embedder failures outside two message patterns surfaced as `500` (now `502`/`504`), and the prompt did not name instructions inside evidence as quoted content (now it does, with each evidence block bounded).
+
+Verification after the fixes: unit 80 pass / 22 expected skips / 0 fail; live pgvector/pg17 integration 26/26 including an HTTP answer round trip, a no-evidence question that made no model call, a superseded document that reported one stale citation through the real revalidation seam, and a hybrid answer reporting `none`; Alpine `node:22-alpine` matrix identical.
 
 ## Comments
 

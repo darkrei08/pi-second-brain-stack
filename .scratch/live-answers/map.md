@@ -18,7 +18,9 @@ The gateway deliberately left answer generation out (decision D1 of `.scratch/ht
 - A4: Citations are `[n]` markers resolved against the numbered evidence. A number outside the evidence set is recorded as unresolved and never guessed; a citation whose stored hashes no longer match is recorded as stale. Neither is silently repaired.
 - A5: Uncertainty is reported, not hidden: `unsupported` when there is no evidence and therefore no model call, `high` when the answer cites nothing or cites outside the evidence or cites stale evidence, `low` when only lexical evidence backed a cited answer, `none` when hybrid evidence backed a cited answer with no unresolved or stale citation.
 - A6: `/v1/chat/completions` is not part of this slice. The product-native `POST /v1/answers` is; the OpenAI-compatible entry stays deferred until streaming, tool-call semantics, and the shell's expectations are designed together.
-- A7: Audit logging, rate limiting, and concurrency caps are deferred. The boundary already caps body size and requires a bearer token; per-owner quotas need a policy that does not exist yet.
+- A7: Audit logging, rate limiting, and concurrency caps are deferred.
+- A8: The chat model and the embedding model are distinct identities: `ANSWER_MODEL` is the chat model for every answer, and `embedding_model_id` on a request only opts into hybrid retrieval. Sharing one identifier made a hybrid-configured deployment unable to answer at all.
+- A9: `uncertainty` reports citation integrity, not entailment. A valid `[n]` proves the cited segment exists, is owned by the caller, and is fresh; it does not prove the sentence is supported. This is stated instead of being promised, and it is the reason the level is `low` rather than `none` for lexical-only answers. The boundary already caps body size and requires a bearer token; per-owner quotas need a policy that does not exist yet.
 
 ## Boundary rules
 
