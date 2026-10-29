@@ -32,6 +32,16 @@ rrf(segment) = sum(1 / (rrf_k + rank_i))
 
 The fused result is capped at `limit` and ordered by fused score descending, then `document_id`, `segment_index`, and segment ID ascending. The method preserves stored segment provenance and citation references, scopes both searches to the requested owner and active retention state, and scopes semantic candidates to the requested model and vector dimension. Invalid input is rejected before database access. This is a provider-neutral exact baseline; learned reranking, ANN tuning, and external vector services remain deferred until measured workload evidence justifies them.
 
+### Collection scope
+
+A collection is the retrieval scope that maps to a folder in the interaction shell. `createCollection({ collection_id, owner_id, created_at })` registers an opaque collection for one owner; a collection carries no label, because the shell owns folder names and identity (decision V2 in `.scratch/interface-stack/map.md`).
+
+Ingest writes membership: `saveDocumentAndSegments` accepts `document.collections`, an optional array of collection IDs, validates every ID against the document owner before any write, and replaces the document's membership set with the declared collections. An unknown or foreign collection fails closed, so a document can never join a collection of another owner. The composite foreign keys in `docker/postgres/init/005-collections.sql` make that isolation a database invariant rather than an application convention.
+
+`searchSegmentsLexical`, `searchSegmentsSemantic`, `searchSegmentsHybrid`, and `listEmbeddingBackfill` accept an optional `collection_ids` array and then return only segments of documents placed in at least one of those collections. Without it, each seam returns exactly what it returned before the collections existed. `deleteCollection` removes the collection and its memberships and leaves documents, segments, and embeddings intact; deleting a document removes its memberships through the same cascade as its segments.
+
+A shell file ID is deliberately not the scope. In the verified integration facts the shell forwards `file_id` values that belong to its own store, while our document, segment, and citation identities are ours; accepting a shell file ID as a scope would either fail closed on every request or, worse, resolve to whatever our store happens to hold under that opaque string. The scope is therefore resolved inside our store, and the shell only forwards the folder identity it owns.
+
 ### Model registry and coverage inspection
 
 The PostgreSQL storage seam exposes `registerEmbeddingModel`, `getEmbeddingModel`, `listEmbeddingModels`, and `inspectEmbeddingCoverage` for provider-neutral model metadata and drift inspection. Registry records are global across owners and contain only an opaque `model_id`, immutable `dimensions`, and explicit `active` or `deprecated` status. Registration is idempotent only for matching metadata; dimensions cannot change, deprecation is one-way, and deprecated models are never silently reactivated.
