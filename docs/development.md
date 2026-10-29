@@ -90,7 +90,19 @@ curl -N -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: applicat
   http://127.0.0.1:8080/v1/chat/completions
 ```
 
-The Open WebUI filter and Pipe are not implemented yet. TLS termination remains the responsibility of an operator-controlled reverse proxy and is not included in the loopback gateway.
+## Open WebUI Filter and Pipe
+
+The standalone plugins are in `integrations/open-webui/filters/gateway_retrieval.py` and `integrations/open-webui/pipes/gateway_research.py`. Add each file through the Open WebUI filter/Pipe configuration, then set the admin-only `GATEWAY_URL` and `GATEWAY_TOKEN` Valves. The default URL is `http://127.0.0.1:8080`; non-loopback gateway URLs must use HTTPS. Both plugins disable redirects, use a 10-second HTTP timeout, and return masked errors.
+
+The Filter maps `body.folder_id` directly to `collection_ids: [folder_id]` for `/v1/retrieval/query`, sends `__user__.id` as `x-shell-user-id`, injects retrieved text as explicitly untrusted evidence, and clears the handled `folder_id` so built-in folder retrieval does not run again. With no selected folder it omits `collection_ids` and uses the gateway's owner-wide behavior. The Pipe sends the latest user message and maps `__metadata__.folder_id` the same way to `/v1/research`; its response displays citations and uncertainty. An explicit unknown or foreign folder remains scoped and does not fall back to owner-wide retrieval. The bearer token and gateway URL come only from admin Valves, never request data.
+
+Run the shell-independent tests with Python 3 and the `httpx` and `pydantic` packages available (both are dependencies of Open WebUI):
+
+```bash
+python3 -m unittest discover -s integrations/open-webui/tests -v
+```
+
+These tests use mocked HTTP responses and do not import or start Open WebUI. Without an installed Open WebUI shell, hook discovery/loading, Valve configuration in its UI, real `folder_id` propagation, and live shell-to-gateway/provider behavior cannot be verified. TLS termination remains the responsibility of an operator-controlled reverse proxy and is not included in the loopback gateway.
 
 ## Verify the package
 
