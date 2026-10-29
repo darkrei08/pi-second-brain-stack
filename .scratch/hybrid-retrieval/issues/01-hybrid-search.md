@@ -10,16 +10,18 @@ Can the existing owner-scoped lexical and exact semantic searches be fused into 
 
 ## Acceptance criteria
 
-- [ ] A public `storage.searchSegmentsHybrid` method combines lexical and semantic candidates.
-- [ ] Reciprocal Rank Fusion uses one-based ranks and a validated positive `rrf_k`.
-- [ ] The method returns at most the requested limit and fetches bounded candidate lists.
-- [ ] Lexical-only, semantic-only, and overlapping candidates are covered by integration tests.
-- [ ] Owner, active retention, model ID, and vector dimension isolation are preserved.
-- [ ] Equal fused scores have deterministic document/segment/ID tie-breaking.
-- [ ] Stored provenance and citation fields are returned unchanged.
-- [ ] Invalid input fails before database contact.
-- [ ] Existing public behavior remains green.
-- [ ] No new dependency, provider, model, schema, ANN index, or private data is added.
+- [x] A public `storage.searchSegmentsHybrid` method combines lexical and semantic candidates.
+- [x] Reciprocal Rank Fusion uses one-based ranks and a validated positive `rrf_k`.
+- [x] The method returns at most the requested limit and fetches bounded candidate lists.
+- [x] Lexical-only, semantic-only, and overlapping candidates are covered by integration tests.
+- [x] Owner, active retention, model ID, and vector dimension isolation are preserved.
+- [x] Equal fused scores have deterministic document/segment/ID tie-breaking.
+- [x] Stored provenance and citation fields are returned unchanged.
+- [x] Invalid input fails before database contact.
+- [x] Existing public behavior remains green.
+- [x] No new dependency, provider, model, schema, ANN index, or private data is added.
+
+Verification: commits `8b466dd` and `c906b16`; pure suite 13 pass with 7 expected integration skips; isolated pgvector/pg17 integration 9/9; package dry-run, Compose config, syntax, and diff checks pass.
 
 ## Non-goals
 
