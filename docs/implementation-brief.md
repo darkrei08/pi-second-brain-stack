@@ -70,7 +70,7 @@ The surface decision adds five contracts. `POST /v1/chat/completions` stays the 
 - `POST /v1/citations/resolve` - resolve cited spans and revalidate freshness for a batch of at most 100 citations. POST rather than GET because the batch is a JSON array of opaque identifiers and hashes: a query string is length-limited and lands in access logs. The owner comes from the authenticated identity and never from the body.
 - `GET /v1/models` - registered embedding models and owner-scoped coverage. The owner comes from the authenticated identity and never from the body.
 - `POST /v1/research` - multi-step research loop over the same retrieval seams. The owner comes from the authenticated identity and never from the body.
-- `POST /v1/answers` - answer one question from numbered evidence, returning the answer, the resolved citations, the unresolved and stale citation ids, the retrieval mode, and an uncertainty level. The owner comes from the authenticated identity and never from the body; a question with no evidence is answered without calling the model.
+- `POST /v1/answers` - answer one question from numbered evidence, returning the answer, the resolved citations, the out-of-range citation numbers, the segment ids whose stored hashes went stale, the retrieval mode, and an uncertainty level. The owner comes from the authenticated identity and never from the body; a question with no evidence is answered without calling the model.
 
 The Open WebUI filter is the only client glue in scope.
 
