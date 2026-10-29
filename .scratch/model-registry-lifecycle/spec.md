@@ -35,7 +35,7 @@ storage.inspectEmbeddingCoverage({ model_id, owner_id })
 - `model_id` and `owner_id` are opaque IDs.
 - `dimensions` is an integer from 1 through 16000.
 - Registry status is exactly `active` or `deprecated`.
-- A model ID can be registered once. Re-registering identical metadata is idempotent; changing dimensions or status fails before mutation.
+- A model ID can be registered once. Re-registering identical metadata is idempotent; dimensions are immutable, and status may transition only from `active` to `deprecated`. Deprecated models cannot be reactivated.
 - Registry metadata is global and contains no owner, vector, source text, credential, or provider endpoint.
 - Coverage counts only segments belonging to active documents owned by the requested owner.
 - `embedded_segments` counts rows for the requested model with the registered dimension; `missing_segments` counts active segments without a matching embedding; `dimension_mismatch_segments` counts rows whose stored dimension differs from the registry dimension.
@@ -46,16 +46,16 @@ storage.inspectEmbeddingCoverage({ model_id, owner_id })
 
 ## Acceptance criteria
 
-- [ ] registry metadata table is created without altering existing vector rows;
-- [ ] valid model registration persists globally and identical re-registration is idempotent;
-- [ ] malformed model IDs, owner IDs, dimensions, statuses, and conflicting re-registration fail closed;
-- [ ] `getEmbeddingModel` and deterministic `listEmbeddingModels` expose metadata only;
-- [ ] coverage inspection is owner-scoped and reports total, embedded, missing, and dimension-mismatch counts;
-- [ ] partial coverage is represented without rejecting the model or mutating vectors;
-- [ ] deprecated models remain inspectable but are not silently reactivated;
-- [ ] no vectors or source text are returned by registry/coverage seams;
-- [ ] existing public and integration tests remain green;
-- [ ] no provider, credential, private corpus, worker, ANN index, or model cache is introduced.
+- [x] registry metadata table is created without altering existing vector rows;
+- [x] valid model registration persists globally and identical re-registration is idempotent;
+- [x] malformed model IDs, owner IDs, dimensions, statuses, and conflicting re-registration fail closed;
+- [x] `getEmbeddingModel` and deterministic `listEmbeddingModels` expose metadata only;
+- [x] coverage inspection is owner-scoped and reports total, embedded, missing, and dimension-mismatch counts;
+- [x] partial coverage is represented without rejecting the model or mutating vectors;
+- [x] deprecated models remain inspectable but are not silently reactivated;
+- [x] no vectors or source text are returned by registry/coverage seams;
+- [x] existing public and integration tests remain green;
+- [x] no provider, credential, private corpus, worker, ANN index, or model cache is introduced.
 
 ## Deferred
 
