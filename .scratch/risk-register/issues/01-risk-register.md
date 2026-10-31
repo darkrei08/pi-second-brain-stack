@@ -152,3 +152,15 @@ The source and test definitions were inspected, but no test command was run for 
 ## Answer
 
 Resolved as an audit ticket. The register, its scoring method, and the ranked exposure list are committed as `26bb2760f962c9ede28893ed5d1263e2207b01d6` on `feat/session-2`. Every candidate carries a CONFIRMED or REJECTED disposition with file:line evidence or a stated reason, each retained risk has threat, path, existing control, residual risk, a verification command, and a follow-up line, and the three pre-deployment mitigations are named. Native review `review-68c6a2cb9f916ec4` assessed the committed range as low and approved it without reviewer captures; the approval was acknowledged. No test, provider call, dependency-advisory query, deployment probe, or destructive retention test was run, by design for a documentation-only slice. The follow-up lines stay open as separate tickets; nothing was pushed.
+
+## Comments
+
+Runtime evidence added 2026-10-30 on `feat/session-2` at `f5602b5`, after R1's fix. This closes part of R10 and confirms R1 at runtime rather than only in unit tests.
+
+- Disposable `pgvector/pgvector:pg17` on `127.0.0.1:55433`, all five `docker/postgres/init` scripts applied in order. The developer volume was not touched.
+- `node src/gateway-cli.js` in `GATEWAY_PRINCIPALS` mode with two principals, against a local fake OpenAI-compatible provider on `127.0.0.1:18081`.
+- Ten assertions passed with real HTTP and a real PostgreSQL database: `GET /healthz` 200 unauthenticated; ingest accepted one synthetic document; owner-one retrieval returned it (`mode: lexical`, one match); owner-two retrieval returned zero matches; owner-one plus a forged `x-shell-user-id` still resolved to owner-one (R1 at runtime); an unknown token answered 401 `unauthorized`; a body naming `owner_id` answered 400; `/v1/answers` returned an answer citing `[1]` with resolved provenance, hashes, `char_span`, and `uncertainty.level: low`; `/v1/research` returned the same field set; `/v1/chat/completions` with `stream: true` emitted a content chunk, a terminal chunk carrying `answer_metadata` with a resolved citation, and `[DONE]` last.
+- Two fixture defects were found and fixed in the throwaway harness, not in the product: an unqualified `document_id` and a bare hex `source_hash` without the `sha256:` prefix are both refused by the store's validation, which is the contract working as specified. A question whose tokens are absent from the corpus legitimately yields `uncertainty.level: unsupported` and makes no model call.
+- Still open, unchanged: no real provider round trip (the fake provider stands in for it), no load test, no adversarial corpus.
+- Open WebUI `ghcr.io/open-webui/open-webui:main` was pulled, started with `WEBUI_AUTH=false`, answered `HTTP 200` on `/`, and was stopped. The two plugins in `integrations/open-webui/` were **not** installed: the repository documents UI installation only, so non-interactive installation remains unproven.
+- The verification harness lived in `/tmp` and is not committed; the commands above are reproducible but the script itself is not part of the repository.
