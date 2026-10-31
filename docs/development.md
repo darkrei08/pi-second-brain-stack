@@ -28,6 +28,17 @@ The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/
 
 The package ships one loopback-only HTTP boundary. It authenticates one bearer token, derives `owner_id` server-side from configuration, and exposes liveness, readiness, ingest, retrieval, citation revalidation, and model inspection. It adds no dependency and no build step.
 
+Two identity modes exist and they are mutually exclusive. `GATEWAY_PRINCIPALS` is the recommended one: a JSON array of `{"token": ..., "owner_id": ...}`, where the presented bearer token alone selects the owner, so a caller cannot name an identity. The legacy mode keeps one shared `GATEWAY_TOKEN` plus `GATEWAY_OWNER_ID`, and an optional `GATEWAY_SHELL_USERS` mapping that lets any token holder choose among the mapped owners. Setting `GATEWAY_PRINCIPALS` together with any of those three variables is refused, never merged. Rotation means editing the variable and restarting the process; there is no in-process revocation.
+
+```bash
+export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag'
+# recommended: one credential per principal; the bearer token alone decides the owner
+export GATEWAY_PRINCIPALS='[{"token":"<32+ random characters>","owner_id":"operator-owner"}]'
+npm start
+```
+
+The legacy single-token mode remains available for a one-operator deployment:
+
 ```bash
 export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag'
 export GATEWAY_TOKEN="$(openssl rand -base64 32)"
@@ -42,7 +53,7 @@ export ANSWER_API_KEY='local-key'
 npm start
 ```
 
-`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, `POST /v1/research`, `POST /v1/chat/completions`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
+`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, `POST /v1/research`, `POST /v1/chat/completions`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer` a configured token; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
 
 ```bash
 curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
