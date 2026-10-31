@@ -57,8 +57,13 @@ export EMBEDDING_BASE_URL='http://127.0.0.1:11434/v1'
 export ANSWER_BASE_URL='http://127.0.0.1:11434/v1'
 export ANSWER_MODEL='llama3.1:8b'
 export ANSWER_API_KEY='local-key'
+# required for remote providers; comma-separated exact hostnames
+export EMBEDDING_ALLOWED_HOSTS='api.example.com'
+export ANSWER_ALLOWED_HOSTS='api.example.com'
 pnpm start
 ```
+
+`ANSWER_ALLOWED_HOSTS` and `EMBEDDING_ALLOWED_HOSTS` are comma-separated hostnames. Remote model endpoints fail closed unless their exact hostname is listed; matching is case-insensitive and ignores one trailing dot. Loopback endpoints need no entry. Leave either variable unset only when that client uses loopback.
 
 `GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, `POST /v1/research`, `POST /v1/chat/completions`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer` a configured token; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
 
