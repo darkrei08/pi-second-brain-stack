@@ -84,7 +84,7 @@ RAGFlow is the strongest candidate for a parser benchmark and an optional privat
 
 Unknown in this bounded pass:
 
-- A complete supported-storage inventory and whether PostgreSQL/pgvector can replace its default retrieval stack.
+- ~~A complete supported-storage inventory and whether PostgreSQL/pgvector can replace its default retrieval stack.~~ Resolved by the bounded re-check at the end of this document: pgvector is not a document engine.
 - Accuracy on the project's Italian P.IVA document set.
 - Whether all parser/model components and their transitive licenses fit the intended private runtime.
 
@@ -182,3 +182,30 @@ Do not replace:
 - Firecrawl developer-search returned 404 and Firecrawl web-search returned empty result groups in this environment. Discovery therefore used Pi web search, while page retrieval used Firecrawl scrape.
 - No live installs, performance benchmarks, parser accuracy tests, legal review, security audit, or corpus evaluation were performed.
 - GitHub pages expose current default-branch state; pin a release/commit before any implementation depends on a candidate.
+
+## Bounded re-check 2026-10-30: RAGFlow storage and OfficeCLI
+
+This pass resolved one RAGFlow unknown and evaluated one repository that is not a RAG platform. Both remain evidence, not decisions.
+
+### RAGFlow storage resolution
+
+- The Docker environment exposes `DOC_ENGINE` values for Elasticsearch (default), Infinity, OpenSearch, OceanBase, SeekDB, GaussDB, and Vastbase. pgvector is not among them. [RAGFlow docker `.env`](https://github.com/infiniflow/ragflow/blob/main/docker/.env)
+- PostgreSQL can serve as the business metadata database (`DB_TYPE=postgres`) or as a data source whose rows are imported for indexing; neither makes it the retrieval index. [RAGFlow Docker README](https://github.com/infiniflow/ragflow/blob/main/docker/README.md)
+- The official quickstart asks for 4 CPU cores, 16 GB RAM, and 50 GB free disk, and the default Compose stack adds MySQL, MinIO, Kvrocks, NATS, and ClickHouse around the document engine. [RAGFlow quickstart](https://ragflow.io/docs)
+- Switching `DOC_ENGINE` does not migrate existing indexes; documents must be reprocessed or reindexed. [RAGFlow FAQ](https://ragflow.io/docs/v1.0.0-rc3/faq)
+
+Implication: RAGFlow cannot host this repository's PostgreSQL/pgvector system of record without replacing the storage contract and the minimal single-operator Compose. Its 16 GB recommendation alone exceeds a host that also runs several Pi sessions. It stays a parser-and-layout benchmark reference.
+
+### OfficeCLI
+
+Not a RAG platform and not a candidate row in the comparison table; it is a document authoring and automation CLI.
+
+- Apache-2.0, one self-contained binary that does not require Microsoft Office, with an MCP server and generated agent skills. [OfficeCLI repository](https://github.com/iOfficeAI/OfficeCLI)
+- It creates, reads, edits, and validates `.docx`, `.xlsx`, and `.pptx`, exposes `get`/`query`/`set`/`add`/`remove`/`move`/`swap` plus raw XPath/OpenXML access, and renders to HTML, SVG, and screenshots. [OfficeCLI repository](https://github.com/iOfficeAI/OfficeCLI)
+- Text extraction is available as `officecli view <file> text [--json]`; the structured JSON carries DOM paths, element types, text, and formatting, but no source byte offsets, page coordinates, or immutable IDs, and `dump` deliberately strips unstable OpenXML identifiers. [OfficeCLI get](https://github.com/iOfficeAI/OfficeCLI/wiki/command-get), [OfficeCLI dump](https://github.com/iOfficeAI/OfficeCLI/wiki/command-dump)
+
+Implication for ingestion: it is the wrong shape for `src/parser-adapter.js` and the segment contract. It performs no OCR and no PDF layout analysis, and it supplies no `[start_offset, end_offset)` code-point span that reproduces segment text exactly, so any adapter would still recompute the canonical spans in `src/segment-document.js`.
+
+Implication for output: its real fit is document generation, which touches the open R5 export gap but must not become a runtime dependency. An owner-scoped export path has to be an in-repository, tested seam; adding a third-party binary would also add a delivery and supply-chain surface that C8 and R7/R8 leave undecided.
+
+Decision: not adopted. Keep it out of the RAG runtime; reconsider only as an operator-side export renderer after R5 semantics and an export seam exist, and record the licence and transitive behaviour at that point.
