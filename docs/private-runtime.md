@@ -29,9 +29,15 @@ Never commit originals, OCR text, embeddings, graph exports, database dumps, sec
 
 ## Required lifecycle behavior
 
-Ingestion must preserve hash, parser, model, page, region, and source provenance. Deletion must cover originals, OCR, page images, chunks, embeddings, graph rows, caches, logs according to policy, and backups according to the backup-retention procedure.
+Ingestion must preserve hash, parser, model, page, region, and source provenance. Document lifecycle has three distinct outcomes:
 
-The runtime must support export, restore testing, audit events, timeouts, resource limits, archive traversal checks, and prompt-injection handling for retrieved content.
+- `active` documents are searchable.
+- `tombstone` documents are retained but excluded from retrieval. Tombstone is reversible and is not erasure.
+- Purge physically deletes the document and cascades to its segments, embeddings, and collection memberships. Purge is irreversible and requires a verified backup first.
+
+The `purged` retention value remains only for legacy rows; setting it is not a purge. No HTTP export or purge route exists yet. Deletion outside the database must still cover originals, OCR, page images, graph rows, caches, logs according to policy, and backups according to the backup-retention procedure.
+
+The runtime must support owner-scoped export, restore testing, audit events, timeouts, resource limits, archive traversal checks, and prompt-injection handling for retrieved content.
 
 ## Schema migrations and restore
 

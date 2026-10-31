@@ -34,3 +34,24 @@ The operator delegated the choice on 2026-10-31 ("prosegui con i task bloccanti 
 - `node --test test/integration/postgres-store.test.js`
 - `pnpm test`
 - `TEST_DATABASE_URL=... pnpm run test:integration`
+
+## Answer
+
+Implemented in `src/postgres-store.js` as three storage methods, alongside the existing `deleteDocument`, with `docs/private-runtime.md` carrying the semantics:
+
+- `setDocumentRetention(document_id, owner_id, state)` moves a document between `active` and `tombstone` and refuses `purged` with a message that names `purgeDocument`.
+- `purgeDocument(document_id, owner_id)` locks the document row, refuses a foreign owner instead of hiding the violation as a missing-document no-op, counts the segments and embeddings it is about to cascade, deletes the document, and returns `{ documents, segments, embeddings }`. A missing document returns zero counts.
+- `exportOwner(owner_id)` returns the owner's collections and documents with `collection_ids` and segments ordered by `segment_index`, each segment carrying `embedding_metadata` as `{ model_id, dimensions }` and never a vector.
+
+No HTTP export or purge route was added: a destructive route needs its own confirmation design, and that is stated in the docs.
+
+Evidence on a disposable `pgvector/pgvector:pg17` at `127.0.0.1:55437`, schema applied with `pnpm migrate` (5/5):
+
+| Check | Result |
+|---|---|
+| `TEST_DATABASE_URL=… pnpm run test:integration` | 31 pass, 0 fail, exit 0, including tombstone-retains-rows, cascade on purge, missing-document no-op, cross-owner refusal, and export determinism |
+| `pnpm test` | 144 tests, 118 pass, 26 expected skips, 0 fail, exit 0 |
+
+Two defects were found in the tests during parent verification, not in the implementation: the cascade assertion queried `segment_embeddings.document_id`, a column that does not exist (it cascades through the segment foreign key), and the R8 migration case assumed an unmigrated database, so it failed once `pnpm migrate` had already been run. Both are fixed in this work unit.
+
+Residual: the purge is a database operation only. Originals, OCR artifacts, caches, logs and backups outside PostgreSQL are not covered by it, and the docs say so.
