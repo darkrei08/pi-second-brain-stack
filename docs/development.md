@@ -1,13 +1,20 @@
 # Local development
 
-This repository contains public reference documentation, a safe PostgreSQL/pgvector skeleton, and a Node 22 package under `src/` that exposes deterministic segmentation, parser normalization, the PostgreSQL storage seams, the citation resolver, the embedding backfill loop, and a loopback HTTP gateway with grounded answers, through `src/index.js`, the `segment-document` CLI, and `npm start`. It does not mount the P.IVA corpus.
+This repository contains public reference documentation, a safe PostgreSQL/pgvector skeleton, and a Node 22 package under `src/` that exposes deterministic segmentation, parser normalization, the PostgreSQL storage seams, the citation resolver, the embedding backfill loop, and a loopback HTTP gateway with grounded answers, through `src/index.js`, the `segment-document` CLI, and `pnpm start`. It does not mount the P.IVA corpus.
 
 ## Requirements
 
 - Git
 - Node.js 22 or newer (the package declares `"node": ">=22"`)
+- pnpm (the package declares `"packageManager"`; run `corepack enable pnpm` once)
 - Docker Engine or Docker Desktop
 - Docker Compose v2
+
+Install the dependencies from the committed lockfile:
+
+```bash
+pnpm install --frozen-lockfile
+```
 
 ## Start the database skeleton
 
@@ -34,7 +41,7 @@ Two identity modes exist and they are mutually exclusive. `GATEWAY_PRINCIPALS` i
 export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag'
 # recommended: one credential per principal; the bearer token alone decides the owner
 export GATEWAY_PRINCIPALS='[{"token":"<32+ random characters>","owner_id":"operator-owner"}]'
-npm start
+pnpm start
 ```
 
 The legacy single-token mode remains available for a one-operator deployment:
@@ -50,7 +57,7 @@ export EMBEDDING_BASE_URL='http://127.0.0.1:11434/v1'
 export ANSWER_BASE_URL='http://127.0.0.1:11434/v1'
 export ANSWER_MODEL='llama3.1:8b'
 export ANSWER_API_KEY='local-key'
-npm start
+pnpm start
 ```
 
 `GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, `POST /v1/research`, `POST /v1/chat/completions`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer` a configured token; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
@@ -117,11 +124,11 @@ These tests use mocked HTTP responses and do not import or start Open WebUI. Wit
 
 ## Verify the package
 
-`npm test` runs the unit suites. The integration file self-skips unless `TEST_DATABASE_URL` points at a reachable PostgreSQL instance with the init scripts applied, which is what the `test:integration` script runs. Both scripts are defined in `package.json`.
+`pnpm test` runs the unit suites. The integration file self-skips unless `TEST_DATABASE_URL` points at a reachable PostgreSQL instance with the init scripts applied, which is what the `test:integration` script runs. Both scripts are defined in `package.json`.
 
 ```bash
-npm test
-TEST_DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag' npm run test:integration
+pnpm test
+TEST_DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag' pnpm run test:integration
 ```
 
 ## Stop and remove local state
