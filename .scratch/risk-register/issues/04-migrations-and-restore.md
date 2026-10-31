@@ -1,7 +1,7 @@
 # 04: Versioned forward-only migrations and a rehearsed backup/restore
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: None
 Source: R8 of [issue 01](01-risk-register.md), pre-deployment mitigation 3.
 
@@ -103,3 +103,5 @@ Checks run independently of the writer against a disposable `pgvector/pgvector:p
 The Rehearsal section above records the dump and restore of a populated disposable database, including the no-op migration on the restored copy. The developer volume was not touched, both rehearsal containers were removed, and the temporary dump was deleted.
 
 Residual: scheduled backups, dump retention, and automated restore verification belong to deployment. R5's tombstone-versus-purge semantics remain undecided and are not changed here.
+
+Native review `review-21dfcdd041638060` covered this slice together with issue 03 as one delivery candidate (base `43069f6b8020f167c5a354076e14887f05331dfe`) with the risk, resilience and reliability lenses; it approved and the approval was acknowledged. No correction was requested.

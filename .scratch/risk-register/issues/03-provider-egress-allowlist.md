@@ -1,7 +1,7 @@
 # 03: Enforce an approved provider host allowlist for model egress
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: None
 Source: R2 of [issue 01](01-risk-register.md), pre-deployment mitigation 2.
 
@@ -46,3 +46,5 @@ Observed at runtime with the disposable pgvector instance on `127.0.0.1:55437` a
 `node --test test/gateway-config.test.js test/chat-client.test.js test/embedding-client.test.js`: 28 pass, 0 fail. `pnpm test`: 136 tests, 113 pass, 23 expected skips, 0 fail, exit 0. The writer observed RED first: 19 pass, 3 fail, because the parser was not exported and neither refusal existed. No dependency was added.
 
 Residual, unchanged: the allowlist decides the destination, not the payload. Provider retention and contract terms stay deployment facts, and no audit record of the provider call is emitted yet, which is the remaining half of R2's follow-up line.
+
+Native review `review-21dfcdd041638060` covered this slice together with issue 04 as one delivery candidate (base `43069f6b8020f167c5a354076e14887f05331dfe`) with the risk, resilience and reliability lenses; it approved and the approval was acknowledged. No correction was requested.
