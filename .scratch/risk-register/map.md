@@ -19,12 +19,12 @@ Impact and likelihood each use High=3, Medium=2, Low=1. Exposure is their produc
 |---|---|---:|---:|---:|---|
 | 1 | R1 Shared bearer token can select a mapped identity | High | Medium | 6 | **Mitigated on `f5602b5`**; native review `review-c88c8279c7a63750` acknowledged. Residual: revocation needs a restart |
 | 2 | R2 Sensitive question/evidence sent to configured provider | High | Medium | 6 | **Mitigated on `a98fcd5`** by a declared-host allowlist; residual: no provider-call audit record |
-| 3 | R5 Tombstone retention and missing export path | High | Medium | 6 | Confirmed; hard-delete cascade works. **Blocked on an operator decision** |
+| 3 | R5 Tombstone retention and missing export path | High | Medium | 6 | **Mitigated on `0fde30c`**: tombstone is documented as non-erasure, purge physically deletes and cascades, export is owner-scoped. Residual: originals, caches, logs and backups are outside PostgreSQL |
 | 4 | R8 No versioned migration or operational restore path | High | Medium | 6 | **Mitigated on `76fdadb`**; rehearsal recorded. Residual: scheduled backups are deployment policy |
 | 5 | R9 Traceability can drift | Medium | High | 6 | Confirmed; drift refreshed and guarded by `test/traceability.test.js` ([issue 02](issues/02-traceability-drift-check.md)) |
 | 6 | R4 Citation integrity is not semantic support | Medium | Medium | 4 | Confirmed |
-| 7 | R6 No explicit rate or concurrency cap | Medium | Medium | 4 | Confirmed; 120-second model-timeout claim rejected |
-| 8 | R7 No repository-local CI gate | Medium | Medium | 4 | Confirmed; Pi dependency vulnerability count rejected |
+| 7 | R6 No explicit rate or concurrency cap | Medium | Medium | 4 | **Mitigated on `5e3d631`**: bounded concurrency plus a per-owner budget in front of the model routes |
+| 8 | R7 No repository-local CI gate | Medium | Medium | 4 | **Mitigated on `7aee02c`**: two CI jobs through repository scripts. The Pi dependency vulnerability count stays rejected |
 | 9 | R10 No live-provider or load coverage | Medium | Medium | 4 | Confirmed; hostile-text fixture exists |
 | 10 | R3 Residual prompt-injection/model-behavior uncertainty | Medium | Low | 2 | Confirmed as an unverified residual, not a reproduced exploit |
 
@@ -32,7 +32,7 @@ Impact and likelihood each use High=3, Medium=2, Low=1. Exposure is their produc
 
 1. Replace the shared bearer token plus caller-selected shell identity with a trusted per-principal identity boundary and an operator revocation path (R1). **Mitigated in code on `f5602b5`**: per-principal tokens select their own owner, the legacy shell-user header no longer decides identity, and startup refuses an ambiguous credential configuration. Runtime-proven on 2026-10-30. Operator token revocation is still a restart.
 2. Decide and enforce approved model-provider destinations and data handling before sending corpus text remotely; record provider/model metadata without logging raw evidence (R2). **Mitigated in code on `a98fcd5`**: a remote endpoint must be declared in `ANSWER_ALLOWED_HOSTS` or `EMBEDDING_ALLOWED_HOSTS` and any other host is refused before a request. The audit record of provider and model metadata is still missing.
-3. Gate real-corpus use on a defined export/purge lifecycle and a versioned migration plus backup/restore rehearsal (R5, R8). **R8 mitigated on `76fdadb`**: forward-only migrations plus a rehearsed dump and restore. **R5 remains open**: tombstone versus purge semantics is an irreversible product decision that has not been taken. Until semantic support is assessed, present uncertainty as citation integrity and require human checking for consequential answers (R4).
+3. Gate real-corpus use on a defined export/purge lifecycle and a versioned migration plus backup/restore rehearsal (R5, R8). **Both mitigated on `0fde30c` and `76fdadb`**: tombstone is explicitly not erasure, purge physically deletes and cascades, export is owner-scoped, and a dump and restore was rehearsed. What the purge cannot reach, originals, OCR artifacts, caches, logs and backups, stays an operator procedure. Until semantic support is assessed, present uncertainty as citation integrity and require human checking for consequential answers (R4).
 
 ## R9 mitigation status
 

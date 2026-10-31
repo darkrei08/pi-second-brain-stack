@@ -1,7 +1,7 @@
 # 05: Owner-scoped export and an explicit physical purge
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: None
 Source: R5 of [issue 01](01-risk-register.md), pre-deployment mitigation 3.
 
@@ -55,3 +55,5 @@ Evidence on a disposable `pgvector/pgvector:pg17` at `127.0.0.1:55437`, schema a
 Two defects were found in the tests during parent verification, not in the implementation: the cascade assertion queried `segment_embeddings.document_id`, a column that does not exist (it cascades through the segment foreign key), and the R8 migration case assumed an unmigrated database, so it failed once `pnpm migrate` had already been run. Both are fixed in this work unit.
 
 Residual: the purge is a database operation only. Originals, OCR artifacts, caches, logs and backups outside PostgreSQL are not covered by it, and the docs say so.
+
+Commit: `0fde30c49f73ae4e780c0a73f21d7276b3f62355`. Native review `review-1aa4678c6075fe4d` covered this work unit together with issues 05, 06 and 07 as one delivery candidate (base `a6435b43aebc43a0501c548982ed4664474cd3cc`) with the risk, resilience and reliability lenses; it approved and the approval was acknowledged. No correction was requested.

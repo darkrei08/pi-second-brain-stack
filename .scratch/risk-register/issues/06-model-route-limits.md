@@ -1,7 +1,7 @@
 # 06: Bound concurrency and rate on the model-backed routes
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: None
 Source: R6 of [issue 01](01-risk-register.md).
 
@@ -34,3 +34,5 @@ R6 records that nothing caps how many authenticated model-backed requests run at
 Evidence: focused `node --test test/gateway-server.test.js test/gateway-config.test.js` 34 pass, 0 fail; `pnpm test` 144 tests, 118 pass, 26 expected skips, 0 fail. Writer-observed RED before implementation: 29 pass, 5 fail.
 
 Incident worth recording: a first attempt at this task hung the whole suite. Its test busy-waited on a condition the unimplemented code could never satisfy, so `pnpm test` exceeded 300 seconds. Both of its test files were reverted and the task was re-dispatched with an explicit instruction to bound every wait; the second attempt fakes the clock instead of waiting a real minute.
+
+Commit: `5e3d6311716aa9bb2c721d92e65fe9cc98a96549`. Native review `review-1aa4678c6075fe4d` covered this work unit together with issues 05, 06 and 07 as one delivery candidate (base `a6435b43aebc43a0501c548982ed4664474cd3cc`) with the risk, resilience and reliability lenses; it approved and the approval was acknowledged. No correction was requested.

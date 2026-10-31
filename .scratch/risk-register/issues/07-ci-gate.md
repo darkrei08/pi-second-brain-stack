@@ -1,7 +1,7 @@
 # 07: Add a repository CI gate
 
 Type: task
-Status: claimed
+Status: resolved
 Blocked by: None
 Source: R7 of [issue 01](01-risk-register.md). The rejected part of R7 stays rejected: the dependency-vulnerability count was never supported by this repository's manifest.
 
@@ -34,3 +34,5 @@ R7 records that no repository-local CI configuration exists, so regressions are 
 Verified locally: `pnpm run verify` exits 0 (unit 144 tests, 118 pass, 26 expected skips, 0 fail; then the integration file self-skips without a database, 5 pass, 26 skip). The workflow YAML parses under `yaml.safe_load` and its jobs, steps, and service image were read back.
 
 Not verified, and it cannot be here: the workflow execution itself. It requires a push to a GitHub remote, which is the operator's decision. The dependency-vulnerability half of R7 stays rejected as unsupported by this repository's manifest.
+
+Commit: `7aee02cf776757b555547a698741d1a23a6b1343`. Native review `review-1aa4678c6075fe4d` covered this work unit together with issues 05, 06 and 07 as one delivery candidate (base `a6435b43aebc43a0501c548982ed4664474cd3cc`) with the risk, resilience and reliability lenses; it approved and the approval was acknowledged. No correction was requested.
