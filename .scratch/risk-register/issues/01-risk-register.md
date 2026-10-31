@@ -1,7 +1,7 @@
 # Assess delivered-stack risks from repository evidence
 
 Type: audit
-Status: claimed
+Status: resolved
 Branch: `feat/session-2`
 Source revision: `1c9a2ff`
 
@@ -149,3 +149,6 @@ This register records the source-supported part of each supplied candidate. Seve
 ## Verification and exclusions
 
 The source and test definitions were inspected, but no test command was run for this documentation-only register. No provider calls, dependency advisory query, deployed-system probe, load test, container migration, backup/restore, or production data access was performed. External CI, provider retention, network egress controls, and deployment topology remain unverified.
+## Answer
+
+Resolved as an audit ticket. The register, its scoring method, and the ranked exposure list are committed as `26bb2760f962c9ede28893ed5d1263e2207b01d6` on `feat/session-2`. Every candidate carries a CONFIRMED or REJECTED disposition with file:line evidence or a stated reason, each retained risk has threat, path, existing control, residual risk, a verification command, and a follow-up line, and the three pre-deployment mitigations are named. Native review `review-68c6a2cb9f916ec4` assessed the committed range as low and approved it without reviewer captures; the approval was acknowledged. No test, provider call, dependency-advisory query, deployment probe, or destructive retention test was run, by design for a documentation-only slice. The follow-up lines stay open as separate tickets; nothing was pushed.

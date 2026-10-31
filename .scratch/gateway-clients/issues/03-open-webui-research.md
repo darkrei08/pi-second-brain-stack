@@ -1,7 +1,7 @@
 # 03: Add Open WebUI retrieval and bounded research
 
 Type: implementation
-Status: claimed
+Status: resolved
 Blocked by: None
 
 ## Question

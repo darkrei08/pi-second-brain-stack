@@ -21,7 +21,7 @@ Impact and likelihood each use High=3, Medium=2, Low=1. Exposure is their produc
 | 2 | R2 Sensitive question/evidence sent to configured provider | High | Medium | 6 | Confirmed; answer-outbound claim rejected |
 | 3 | R5 Tombstone retention and missing export path | High | Medium | 6 | Confirmed; hard-delete cascade works |
 | 4 | R8 No versioned migration or operational restore path | High | Medium | 6 | Confirmed; volume-recreation claim rejected |
-| 5 | R9 Traceability can drift | Medium | High | 6 | Confirmed; stale entries observed |
+| 5 | R9 Traceability can drift | Medium | High | 6 | Confirmed; drift refreshed and guarded by `test/traceability.test.js` ([issue 02](issues/02-traceability-drift-check.md)) |
 | 6 | R4 Citation integrity is not semantic support | Medium | Medium | 4 | Confirmed |
 | 7 | R6 No explicit rate or concurrency cap | Medium | Medium | 4 | Confirmed; 120-second model-timeout claim rejected |
 | 8 | R7 No repository-local CI gate | Medium | Medium | 4 | Confirmed; Pi dependency vulnerability count rejected |
@@ -33,6 +33,10 @@ Impact and likelihood each use High=3, Medium=2, Low=1. Exposure is their produc
 1. Replace the shared bearer token plus caller-selected shell identity with a trusted per-principal identity boundary and an operator revocation path (R1).
 2. Decide and enforce approved model-provider destinations and data handling before sending corpus text remotely; record provider/model metadata without logging raw evidence (R2).
 3. Gate real-corpus use on a defined export/purge lifecycle and a versioned migration plus backup/restore rehearsal (R5, R8). Until semantic support is assessed, present uncertainty as citation integrity and require human checking for consequential answers (R4).
+
+## R9 mitigation status
+
+R9's drift is closed for the present state: the matrix was refreshed from committed evidence and `test/traceability.test.js` fails on a stale `commit pending` or `native review pending` marker and on any resolved ticket missing from the matrix. The guard cannot prove that a cited commit exists, because a committed test must not read git history, so a wrong-but-unmarked hash remains possible.
 
 ## Exit condition
 
