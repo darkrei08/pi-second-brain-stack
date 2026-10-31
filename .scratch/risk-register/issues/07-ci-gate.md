@@ -21,3 +21,16 @@ R7 records that no repository-local CI configuration exists, so regressions are 
 
 - `pnpm ci`
 - `node -e "…yaml parse…"` or `python3 -c "import yaml,sys;yaml.safe_load(open('.github/workflows/ci.yml'))"`
+
+## Answer
+
+`.github/workflows/ci.yml` defines two jobs on push and pull request:
+
+- `unit`: checkout, pnpm from the declared `packageManager`, Node 22, `pnpm install --frozen-lockfile`, `pnpm run verify`.
+- `integration`: the same setup plus a `pgvector/pgvector:pg17` service with a `pg_isready` health check, then `pnpm migrate` and `pnpm run test:integration`, both driven by repository scripts rather than SQL pasted into YAML.
+
+`package.json` gains one script, `verify`. It is not named `ci` because `pnpm ci` is a built-in alias for a frozen install and silently ignores a script of that name; the first draft of this work unit made exactly that mistake and was renamed after the command ran an install instead of the suites.
+
+Verified locally: `pnpm run verify` exits 0 (unit 144 tests, 118 pass, 26 expected skips, 0 fail; then the integration file self-skips without a database, 5 pass, 26 skip). The workflow YAML parses under `yaml.safe_load` and its jobs, steps, and service image were read back.
+
+Not verified, and it cannot be here: the workflow execution itself. It requires a push to a GitHub remote, which is the operator's decision. The dependency-vulnerability half of R7 stays rejected as unsupported by this repository's manifest.

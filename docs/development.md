@@ -16,6 +16,8 @@ Install the dependencies from the committed lockfile:
 pnpm install --frozen-lockfile
 ```
 
+`pnpm run verify` runs both suites locally. The script is not named `ci` because `pnpm ci` is a built-in alias for `pnpm install --frozen-lockfile`. CI runs the same scripts: `.github/workflows/ci.yml` has a unit job that calls `pnpm run verify`, and an integration job that starts `pgvector/pgvector:pg17`, applies the schema with `pnpm migrate`, and runs `pnpm run test:integration`.
+
 ## Start the database skeleton
 
 Set the values in the shell or in an untracked local `.env` file. Use a random local password.
@@ -29,7 +31,7 @@ docker compose up -d postgres
 docker compose ps
 ```
 
-The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/init/` enable `vector` and `pg_trgm` and create `documents`, `segments`, `segment_embeddings`, `embedding_models`, `collections`, and `document_collections` with their indexes. They run only when the data volume is empty, so a volume created by an older checkout must be recreated before the current seams work. No P.IVA path is mounted by this reference file.
+The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/init/` enable `vector` and `pg_trgm` and create `documents`, `segments`, `segment_embeddings`, `embedding_models`, `collections`, and `document_collections` with their indexes. Docker runs them only on an empty data volume; an existing volume is upgraded in place with `DATABASE_URL=... pnpm migrate`, which applies the same files forward-only and records them in `schema_migrations`. No P.IVA path is mounted by this reference file.
 
 ## Run the gateway
 
