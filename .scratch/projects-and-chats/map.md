@@ -16,7 +16,7 @@ Budget is real: at the shipped default of `GATEWAY_MODEL_CONCURRENCY=4`, the mea
 
 ## Decisions so far
 
-Empty. No ticket has been resolved yet.
+- Folder scope bridge: `POST /v1/documents/ingest` accepts `document.collections`, creates or reuses opaque owner-scoped collections and memberships on write, while unknown or empty retrieval scopes return zero matches without read creation; `.scratch/projects-and-chats/issues/01-folder-to-collection-scope.md`.
 
 ## Not yet specified
 
