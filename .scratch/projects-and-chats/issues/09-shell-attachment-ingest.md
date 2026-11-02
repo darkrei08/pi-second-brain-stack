@@ -18,3 +18,14 @@ The questions that must be answered by the implementation, not guessed: which ho
 - A gateway refusal is surfaced to the person as a readable message, not a stack trace or a silent drop.
 - Python tests in `integrations/open-webui/tests/` that assert the request body built for ingest, the folder propagation, and each refusal path, run by the repository's own test command.
 - One page in `docs/` describing the end-to-end path from an upload in the shell to a scoped answer.
+
+## Comments
+
+A first implementation attempt stopped before writing code, and it was right to stop. Verified from https://docs.openwebui.com/features/extensibility/plugin/functions/filter/ (section "Owning Retrieval With file_handler"): `body["files"]` and `body["metadata"]["files"]` carry references only, an id, a name and a type, never bytes or extracted text, and `file_handler=True` does nothing beyond skipping the built-in RAG. `folder_id` is readable in `inlet`, but the file content is not available in that same hook. So V4 as written cannot be implemented in a filter by itself.
+
+Two candidate designs remain, and the choice is a decision, not a preference:
+
+- **A. The filter fetches the content from the shell's own API.** A filter runs inside the shell, so it may be able to read the uploaded file through the shell's file endpoints using the caller's own authorization, and then call our ingest with `document.collections`. This needs verification from the shell's documentation or source, because it is not established anywhere in this repository, and it adds a second HTTP hop inside the plugin along with a question about which credential is used.
+- **B. Ingest happens outside the chat request.** A documented path, a script or a route, ingests a directory into a named collection, and the shell stays a read and chat surface. Nothing is invented, the corpus path is explicit, and the person loses only the automatic half.
+
+Preference is B if A cannot be verified from a primary source, because a plugin that depends on an undocumented endpoint breaks silently on the next shell upgrade. Both keep V7 intact: the shell remains the owner of conversations.
