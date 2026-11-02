@@ -67,7 +67,7 @@ The surface decision adds five contracts. `POST /v1/chat/completions` stays the 
 
 - `POST /v1/documents/ingest` - accept a shell attachment and persist it with provenance. The owner comes from the authenticated identity and never from the body.
 - `POST /v1/retrieval/query` - hybrid retrieval with an optional collection scope and an explicit owner. The owner comes from the authenticated identity and never from the body.
-- `GET /v1/citations/resolve` - resolve cited spans and revalidate freshness. The owner comes from the authenticated identity and never from the body.
+- `POST /v1/citations/resolve` - resolve cited spans and revalidate freshness for a batch of at most 100 citations. POST rather than GET because the batch is a JSON array of opaque identifiers and hashes: a query string is length-limited and lands in access logs. The owner comes from the authenticated identity and never from the body.
 - `GET /v1/models` - registered embedding models and owner-scoped coverage. The owner comes from the authenticated identity and never from the body.
 - `POST /v1/research` - multi-step research loop over the same retrieval seams. The owner comes from the authenticated identity and never from the body.
 

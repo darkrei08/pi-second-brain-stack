@@ -24,6 +24,30 @@ docker compose ps
 
 The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/init/` enable `vector` and `pg_trgm` and create `documents`, `segments`, `segment_embeddings`, `embedding_models`, `collections`, and `document_collections` with their indexes. They run only when the data volume is empty, so a volume created by an older checkout must be recreated before the current seams work. No P.IVA path is mounted by this reference file.
 
+## Run the gateway
+
+The package ships one loopback-only HTTP boundary. It authenticates one bearer token, derives `owner_id` server-side from configuration, and exposes liveness, readiness, ingest, retrieval, citation revalidation, and model inspection. It adds no dependency and no build step.
+
+```bash
+export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag'
+export GATEWAY_TOKEN="$(openssl rand -base64 32)"
+export GATEWAY_OWNER_ID=operator-owner
+# optional: map shell user ids to owners, and an optional embedder for hybrid mode
+export GATEWAY_SHELL_USERS='{"shell-user":"operator-owner"}'
+export EMBEDDING_BASE_URL='http://127.0.0.1:11434/v1'
+npm start
+```
+
+`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
+
+```bash
+curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
+  -d '{"query":"invoice","collection_ids":["synthetic-collection-alpha"]}' \
+  http://127.0.0.1:8080/v1/retrieval/query
+```
+
+Answer generation (`/v1/chat/completions`, `/v1/research`), the Open WebUI filter and pipe, and TLS termination are not implemented.
+
 ## Verify the package
 
 `npm test` runs the unit suites. The integration file self-skips unless `TEST_DATABASE_URL` points at a reachable PostgreSQL instance with the init scripts applied, which is what the `test:integration` script runs. Both scripts are defined in `package.json`.
