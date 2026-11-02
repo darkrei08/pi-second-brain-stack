@@ -131,6 +131,10 @@ python3 -m unittest discover -s integrations/open-webui/tests -v
 
 These tests use mocked HTTP responses and do not import or start Open WebUI. Without an installed Open WebUI shell, hook discovery/loading, Valve configuration in its UI, real `folder_id` propagation, and live shell-to-gateway/provider behavior cannot be verified. TLS termination remains the responsibility of an operator-controlled reverse proxy and is not included in the loopback gateway.
 
+## Ingesting shell project files
+
+For the documented manual bridge from an Open WebUI project folder to the gateway, see [Ingesting shell project files](shell-attachment-ingest.md). The command validates a complete directory before sending any document, then uses the existing authenticated ingest route and collection scope.
+
 ## Verify the package
 
 `pnpm test` runs the unit suites. The integration file self-skips unless `TEST_DATABASE_URL` points at a reachable PostgreSQL instance with the init scripts applied, which is what the `test:integration` script runs. Both scripts are defined in `package.json`.
