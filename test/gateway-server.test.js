@@ -4,6 +4,7 @@ import test from 'node:test';
 
 import { createAuthenticator } from '../src/gateway-auth.js';
 import { createGatewayServer } from '../src/gateway-server.js';
+import { segmentDocument } from '../src/index.js';
 
 const token = 'a'.repeat(32);
 const authenticator = createAuthenticator({
@@ -30,6 +31,7 @@ function createRecordingStorage(overrides = {}) {
       { id: 'urn:segment:a', document_id: 'urn:document:a', semantic_rank: 1, lexical_rank: 1, hybrid_score: 0.1 }
     ]),
     revalidateCitations: record('revalidateCitations', { valid: false, stale_ids: ['urn:segment:a'] }),
+    searchSegmentsLexicalAnswerable: record('searchSegmentsLexicalAnswerable', []),
     saveDocumentAndSegments: record('saveDocumentAndSegments', undefined),
     listDocumentCollections: record('listDocumentCollections', ['synthetic-collection-alpha']),
     ...overrides
@@ -38,8 +40,7 @@ function createRecordingStorage(overrides = {}) {
 }
 
 function withServer(storage, options = {}) {
-  const gateway = createGatewayServer({ storage, authenticator, ...options });
-  return gateway;
+  return createGatewayServer({ storage, authenticator, answer_model: 'synthetic-chat', ...options });
 }
 
 async function call(gateway, path, { method = 'GET', headers = auth, body, rawBody, contentLength } = {}) {
@@ -418,4 +419,159 @@ test('reports an unexpected dependency failure without leaking it', async () => 
   await gateway.stop();
   assert.equal(response.status, 500);
   assert.deepEqual(response.body, { error: { code: 'internal_error', message: 'The request failed' } });
+});
+
+function answerableStorage() {
+  const ownerId = 'owner-one';
+  const document = {
+    document_id: 'urn:document:gateway-answer',
+    text: 'The invoice alpha is filed under the contract.',
+    source_label: 'gateway-answer.txt',
+    source_hash: `sha256:${'ac'.repeat(32)}`,
+    lineage: { parser: 'synthetic-parser@1.0.0', model: null },
+    created_at: '2026-01-06T00:00:00Z',
+    retention: { owner_id: ownerId, state: 'active' }
+  };
+  const segmented = segmentDocument(document, { max_segment_chars: 200 });
+  const matches = segmented.segments.map((segment) => ({
+    ...segment,
+    source_hash: document.source_hash,
+    source_label: document.source_label,
+    owner_id: ownerId,
+    retention_state: 'active',
+    rank: 0.5
+  }));
+  const calls = [];
+  return {
+    calls,
+    async getEmbeddingModel(model_id) {
+      calls.push({ name: 'getEmbeddingModel', input: { model_id } });
+      return { model_id, dimensions: 3, status: 'active' };
+    },
+    async searchSegmentsLexical(input) {
+      calls.push({ name: 'searchSegmentsLexical', input });
+      return matches;
+    },
+    async searchSegmentsHybrid(input) {
+      calls.push({ name: 'searchSegmentsHybrid', input });
+      return matches;
+    },
+    async revalidateCitations(citations, options) {
+      calls.push({ name: 'revalidateCitations', input: { citations, options } });
+      return { valid: true, stale_ids: [] };
+    }
+  };
+}
+
+test('answers over evidence with a derived owner and the injected chat adapter', async () => {
+  const storage = answerableStorage();
+  const chatCalls = [];
+  const gateway = withServer(storage, {
+    chat: async (input) => {
+      chatCalls.push(input);
+      return 'The invoice alpha is filed under the contract [1].';
+    }
+  });
+  const response = await call(gateway, '/v1/answers', {
+    method: 'POST',
+    body: { question: 'where is the invoice alpha?' }
+  });
+  await gateway.stop();
+  assert.equal(response.status, 200);
+  assert.equal(response.body.citations.length, 1);
+  assert.deepEqual(response.body.unresolved_citations, []);
+  assert.deepEqual(response.body.stale_citations, []);
+  assert.equal(response.body.uncertainty.level, 'low');
+  assert.equal(response.body.uncertainty.evidence_count, 1);
+  assert.equal(chatCalls.length, 1);
+  assert.equal(chatCalls[0].model_id, 'synthetic-chat');
+  assert.equal(chatCalls[0].messages[0].role, 'system');
+  assert.equal(chatCalls[0].messages[1].content.includes('where is the invoice alpha?'), true);
+  const search = storage.calls.find(({ name }) => name === 'searchSegmentsLexical');
+  assert.equal(search.input.owner_id, 'owner-one');
+});
+
+test('refuses an answer request without a configured model and without authentication', async () => {
+  const unconfigured = withServer(answerableStorage(), { chat: undefined, answer_model: undefined });
+  const unavailable = await expectStatus(
+    unconfigured,
+    '/v1/answers',
+    { method: 'POST', body: { question: 'where is the invoice alpha?' } },
+    503
+  );
+  assert.equal(unavailable.body.error.code, 'answers_unavailable');
+
+  const unauthenticated = withServer(answerableStorage(), { chat: async () => 'x [1].' });
+  const refused = await expectStatus(
+    unauthenticated,
+    '/v1/answers',
+    { method: 'POST', headers: {}, body: { question: 'where is the invoice alpha?' } },
+    401
+  );
+  assert.equal(refused.body.error.code, 'unauthorized');
+
+  const forged = withServer(answerableStorage(), { chat: async () => 'x [1].' });
+  const rejected = await expectStatus(
+    forged,
+    '/v1/answers',
+    { method: 'POST', body: { question: 'where?', owner_id: 'owner-two' } },
+    400
+  );
+  assert.equal(rejected.body.error.code, 'invalid_request');
+});
+
+test('maps a malformed provider response and an embedder failure to boundary errors', async () => {
+  const malformed = withServer(answerableStorage(), {
+    chat: async () => {
+      throw new Error('chat response must be valid JSON');
+    }
+  });
+  const broken = await expectStatus(malformed, '/v1/answers', { method: 'POST', body: { question: 'invoice alpha' } }, 502);
+  assert.equal(broken.body.error.code, 'model_failed');
+
+  const embedTimeout = withServer(answerableStorage(), {
+    chat: async () => 'x [1].',
+    embed: async () => {
+      throw new Error('embedding request timed out');
+    }
+  });
+  const timedOutEmbed = await expectStatus(
+    embedTimeout,
+    '/v1/answers',
+    { method: 'POST', body: { question: 'invoice alpha', embedding_model_id: 'synthetic-3d' } },
+    504
+  );
+  assert.equal(timedOutEmbed.body.error.code, 'model_timeout');
+
+  const embedFailed = withServer(answerableStorage(), {
+    chat: async () => 'x [1].',
+    embed: async () => {
+      throw new Error('embedding request failed with status 500');
+    }
+  });
+  const failedEmbed = await expectStatus(
+    embedFailed,
+    '/v1/answers',
+    { method: 'POST', body: { question: 'invoice alpha', embedding_model_id: 'synthetic-3d' } },
+    502
+  );
+  assert.equal(failedEmbed.body.error.code, 'model_failed');
+});
+
+test('maps a provider timeout and a provider failure to stable boundary errors', async () => {
+  const timeout = withServer(answerableStorage(), {
+    chat: async () => {
+      throw new Error('chat request timed out');
+    }
+  });
+  const timedOut = await expectStatus(timeout, '/v1/answers', { method: 'POST', body: { question: 'where?' } }, 504);
+  assert.equal(timedOut.body.error.code, 'model_timeout');
+
+  const failing = withServer(answerableStorage(), {
+    chat: async () => {
+      throw new Error('chat request failed with status 429');
+    }
+  });
+  const failed = await expectStatus(failing, '/v1/answers', { method: 'POST', body: { question: 'where?' } }, 502);
+  assert.equal(failed.body.error.code, 'model_failed');
 });

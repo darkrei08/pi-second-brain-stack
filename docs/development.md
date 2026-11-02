@@ -1,6 +1,6 @@
 # Local development
 
-This repository contains public reference documentation, a safe PostgreSQL/pgvector skeleton, and a Node 22 package under `src/` that exposes deterministic segmentation, parser normalization, the PostgreSQL storage seams, the citation resolver, and the embedding backfill loop through `src/index.js` and the `segment-document` CLI. It does not mount the P.IVA corpus and it does not include an application gateway yet.
+This repository contains public reference documentation, a safe PostgreSQL/pgvector skeleton, and a Node 22 package under `src/` that exposes deterministic segmentation, parser normalization, the PostgreSQL storage seams, the citation resolver, the embedding backfill loop, and a loopback HTTP gateway with grounded answers, through `src/index.js`, the `segment-document` CLI, and `npm start`. It does not mount the P.IVA corpus.
 
 ## Requirements
 
@@ -35,10 +35,14 @@ export GATEWAY_OWNER_ID=operator-owner
 # optional: map shell user ids to owners, and an optional embedder for hybrid mode
 export GATEWAY_SHELL_USERS='{"shell-user":"operator-owner"}'
 export EMBEDDING_BASE_URL='http://127.0.0.1:11434/v1'
+# optional: an OpenAI-compatible chat model for grounded answers
+export ANSWER_BASE_URL='http://127.0.0.1:11434/v1'
+export ANSWER_MODEL='llama3.1:8b'
+export ANSWER_API_KEY='local-key'
 npm start
 ```
 
-`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
+`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
 
 ```bash
 curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
@@ -46,7 +50,15 @@ curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application
   http://127.0.0.1:8080/v1/retrieval/query
 ```
 
-Answer generation (`/v1/chat/completions`, `/v1/research`), the Open WebUI filter and pipe, and TLS termination are not implemented.
+`POST /v1/answers` answers only from retrieved evidence and reports its own uncertainty (`none`, `low`, `high`, `unsupported`). It accepts `question` (required), `collection_ids`, `embedding_model_id` (enables hybrid retrieval; the chat model is a different model and comes from `ANSWER_MODEL`), `limit` (1-100, default 6), and `max_tokens` (1-8192, default 600). It returns `answer`, `citations`, `unresolved_citations` (the out-of-range citation numbers), `stale_citations` (segment ids whose stored hashes no longer match), `retrieval`, and `uncertainty`. It answers `503` when `ANSWER_BASE_URL` or `ANSWER_MODEL` is unset, `504` on a model timeout, `502` on a model failure, and it never calls the model when retrieval returns nothing.
+
+```bash
+curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
+  -d '{"question":"when does the contract expire?"}' \
+  http://127.0.0.1:8080/v1/answers
+```
+
+The OpenAI-compatible `POST /v1/chat/completions` entry, streaming, the Open WebUI filter and pipe, and TLS termination are not implemented.
 
 ## Verify the package
 
