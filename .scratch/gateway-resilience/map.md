@@ -10,7 +10,8 @@ Each ticket is a behaviour change with a test that fails without it. No ticket c
 
 ## Decisions so far
 
-Empty.
+- Ticket 01 uses one sanitized structured JSON trace line on stderr for each unexpected failure; it carries only the route and error class.
+
 
 ## Not yet specified
 

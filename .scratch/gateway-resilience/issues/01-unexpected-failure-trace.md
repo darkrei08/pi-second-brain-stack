@@ -1,7 +1,7 @@
 # 01: Leave a trace when an unexpected failure is sanitized
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -13,3 +13,7 @@ Blocked by: none
 - A test that provokes an unexpected failure and asserts the trace is emitted once, with the route and the error class, and that no caller payload appears in it.
 - A test that a caller-caused error (a `4xx` from validation) emits no incident trace.
 - `docs/development.md` says where the trace goes and what it contains.
+
+## Answer
+
+Unexpected failures use one structured JSON line on stderr: `gateway_unexpected_failure` names the HTTP route and error class, and never includes request or answer payload text. Caller-caused `4xx` errors do not emit the trace. Verified by `test/gateway-server.test.js`.
