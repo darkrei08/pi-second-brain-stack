@@ -11,6 +11,7 @@ Each ticket is a behaviour change with a test that fails without it. No ticket c
 ## Decisions so far
 
 - Ticket 01 uses one sanitized structured JSON trace line on stderr for each unexpected failure; it carries only the route and error class.
+- Ticket 02 makes `/readyz` check storage plus a minimal answer-provider probe, caching the verdict for 30 seconds so provider cost is bounded to one probe per window.
 
 
 ## Not yet specified

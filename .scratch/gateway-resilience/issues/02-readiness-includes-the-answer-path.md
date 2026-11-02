@@ -1,7 +1,7 @@
 # 02: Readiness reflects the answer path, not only PostgreSQL
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -13,3 +13,7 @@ Blocked by: none
 - A test that a gateway with an unreachable provider answers not ready, and one that a healthy configuration answers ready.
 - The probe must not call a paid provider on every request: state the mechanism and bound its cost, with a test for the bound.
 - The stricter verdict is documented, including what an operator sees when it flips.
+
+## Answer
+
+`/readyz` checks PostgreSQL and performs one minimal answer-provider probe on the first request or after a 30-second cache window. The cached verdict bounds provider cost to at most one probe per 30 seconds; missing or unreachable answer configuration returns `503 not_ready`, while a successful probe returns `ready`. The provider error is not exposed. Verified by `test/gateway-server.test.js`.
