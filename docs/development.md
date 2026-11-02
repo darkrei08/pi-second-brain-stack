@@ -22,7 +22,7 @@ docker compose up -d postgres
 docker compose ps
 ```
 
-The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/init/` enable `vector` and `pg_trgm` and create `documents`, `segments`, `segment_embeddings`, and `embedding_models` with their indexes. They run only when the data volume is empty, so a volume created by an older checkout must be recreated before the current seams work. No P.IVA path is mounted by this reference file.
+The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/init/` enable `vector` and `pg_trgm` and create `documents`, `segments`, `segment_embeddings`, `embedding_models`, `collections`, and `document_collections` with their indexes. They run only when the data volume is empty, so a volume created by an older checkout must be recreated before the current seams work. No P.IVA path is mounted by this reference file.
 
 ## Verify the package
 

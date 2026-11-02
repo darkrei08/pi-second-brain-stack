@@ -32,6 +32,7 @@ The wider comparison and its evidence live in `research-ui-landscape.md`.
 - V5: One configured mapping row maps the shell user id to our `owner_id`. `owner_id` is always derived server-side from the authenticated identity and never accepted from a request body.
 - V6: We own an ingest-and-query API plus shell glue: one Open WebUI filter for retrieval and one Pipe to expose research mode as a model. We do not implement the LibreChat RAG contract.
 - V7: The shell is the only store for conversations, pins, and folders. It is an accepted second store, with separate backup and deletion boundaries: conversations in the shell, documents and citations in ours. Nothing about the corpus leaves our store.
+- V8: A collection is the persisted retrieval scope: `collections` plus `document_collections` with composite owner foreign keys, written only by ingest, filtered by every retrieval seam through an optional `collection_ids` list. Memberships carry no label because the shell owns folder names, and a shell file ID is explicitly rejected as the scope. Implemented in `005-collections.sql` and `src/postgres-store.js`; resolved in `issues/02-collections-as-retrieval-scope.md` with commits `6e296cc` and `ebec794`.
 
 UI captures are stored in `.scratch/interface-stack/media/`.
 
