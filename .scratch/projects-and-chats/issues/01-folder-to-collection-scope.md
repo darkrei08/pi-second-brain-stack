@@ -29,4 +29,4 @@ DATABASE_URL='postgres://rag:rag@127.0.0.1:32768/rag' pnpm migrate
 TEST_DATABASE_URL='postgres://rag:rag@127.0.0.1:32768/rag' pnpm run verify
 ```
 
-The disposable `pgvector/pgvector:pg17` container was removed after verification. The explicit-route alternative was rejected because it adds a shell round trip and a second write contract without improving ownership or atomicity; creating on ingest keeps the collection and membership write atomic with the document while preserving one source of truth. Commit: to be filled after commit.
+The disposable `pgvector/pgvector:pg17` container was removed after verification. The explicit-route alternative was rejected because it adds a shell round trip and a second write contract without improving ownership or atomicity; creating on ingest keeps the collection and membership write atomic with the document while preserving one source of truth. Commit: `da4d7cf`.
