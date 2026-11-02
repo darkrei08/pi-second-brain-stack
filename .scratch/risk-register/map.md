@@ -18,7 +18,7 @@ Impact and likelihood each use High=3, Medium=2, Low=1. Exposure is their produc
 | Rank | Risk | Impact | Likelihood | Exposure | Disposition |
 |---|---|---:|---:|---:|---|
 | 1 | R1 Shared bearer token can select a mapped identity | High | Medium | 6 | **Mitigated on `f5602b5`**; native review `review-c88c8279c7a63750` acknowledged. Residual: revocation needs a restart |
-| 2 | R2 Sensitive question/evidence sent to configured provider | High | Medium | 6 | **Mitigated on `a98fcd5`** by a declared-host allowlist; residual: no provider-call audit record |
+| 2 | R2 Sensitive question/evidence sent to configured provider | High | Medium | 6 | **Mitigated on `a98fcd5`** by a declared-host allowlist; the call-audit residual closed by ticket 08 (`model_call` metadata on stdout) |
 | 3 | R5 Tombstone retention and missing export path | High | Medium | 6 | **Mitigated on `0fde30c`**: tombstone is documented as non-erasure, purge physically deletes and cascades, export is owner-scoped. Residual: originals, caches, logs and backups are outside PostgreSQL |
 | 4 | R8 No versioned migration or operational restore path | High | Medium | 6 | **Mitigated on `76fdadb`**; rehearsal recorded. Residual: scheduled backups are deployment policy |
 | 5 | R9 Traceability can drift | Medium | High | 6 | Confirmed; drift refreshed and guarded by `test/traceability.test.js` ([issue 02](issues/02-traceability-drift-check.md)) |
