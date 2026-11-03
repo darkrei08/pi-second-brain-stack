@@ -16,4 +16,8 @@ Blocked by: none
 
 ## Answer
 
-`/readyz` checks PostgreSQL and performs one minimal answer-provider probe on the first request or after a 30-second cache window. The cached verdict bounds provider cost to at most one probe per 30 seconds; missing or unreachable answer configuration returns `503 not_ready`, while a successful probe returns `ready`. The provider error is not exposed. Verified by `test/gateway-server.test.js`.
+`/readyz` checks PostgreSQL and performs one credentialed answer-provider metadata probe on the first request or after a 30-second cache window. The probe uses `GET /models`, verifies that `ANSWER_MODEL` is declared, has a separate 3-second timeout, generates no completion, and emits no audit event. The cached verdict bounds provider requests to at most one probe per 30 seconds; missing, unreachable, or misconfigured answer configuration returns `503 not_ready`, while a successful probe returns `ready`. The provider error is not exposed. Verified by `test/chat-client.test.js` and `test/gateway-server.test.js`.
+
+## Comments
+
+2026-11-03 correction: the previous readiness implementation spent a real completion token and emitted a synthetic `model_call` with a null owner. It now uses the chat client's credentialed model-list capability, preserving the 30-second cache while avoiding paid completions and polluted audit records; the probe is independently capped at three seconds so provider stalls do not hold readiness indefinitely.
