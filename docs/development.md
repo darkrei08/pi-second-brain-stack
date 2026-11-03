@@ -46,6 +46,8 @@ export GATEWAY_PRINCIPALS='[{"token":"<32+ random characters>","owner_id":"opera
 pnpm start
 ```
 
+On `SIGINT` or `SIGTERM`, the gateway waits at most five seconds for each of the HTTP server and PostgreSQL pool shutdown steps. A rejected or timed-out step is reported to stderr, the remaining step is attempted, and the process exits non-zero; a clean shutdown exits zero.
+
 The legacy single-token mode remains available for a one-operator deployment:
 
 ```bash
