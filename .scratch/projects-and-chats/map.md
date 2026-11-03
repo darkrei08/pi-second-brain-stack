@@ -18,6 +18,7 @@ Budget is real: at the shipped default of `GATEWAY_MODEL_CONCURRENCY=4`, the mea
 
 - Folder scope bridge: `POST /v1/documents/ingest` accepts `document.collections`, creates or reuses opaque owner-scoped collections and memberships on write, while unknown or empty retrieval scopes return zero matches without read creation; `.scratch/projects-and-chats/issues/01-folder-to-collection-scope.md`.
 - Attachment bridge: use the explicit `ingest-directory` command outside the chat request because Open WebUI documents asynchronous extraction but not extraction completion before a Filter runs; `.scratch/projects-and-chats/issues/09-shell-attachment-ingest.md`.
+- Standing instructions: Open WebUI owns per-folder/project system prompts and knowledge context for chats; the gateway keeps its server-owned safety prompt and adds no project-instructions request field; `.scratch/projects-and-chats/issues/02-project-standing-instructions.md`.
 
 ## Not yet specified
 

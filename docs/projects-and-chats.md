@@ -2,6 +2,12 @@
 
 The shell owns projects, chats, pins, and folder names. The gateway owns documents, segments, collections, and citations. A collection is only a retrieval scope; suggestions never change a request scope or document membership by themselves.
 
+## Project standing instructions
+
+Open WebUI folders/projects already carry the chat context: the shell documentation describes per-folder system prompts and knowledge bases that apply to chats in that folder. See [Folders & Projects](https://docs.openwebui.com/features/chat-conversations/chat-features/conversation-organization/) and [Knowledge](https://docs.openwebui.com/features/workspace/knowledge/).
+
+The gateway therefore does not add or persist project instructions. `src/answer-question.js` keeps the answer safety prompt server-owned, while the gateway receives the question and retrieval scope. There is no caller-controlled project-instructions field to validate or override.
+
 ## Suggest collections for a question
 
 `POST /v1/collections/suggest` requires the authenticated caller and accepts:
