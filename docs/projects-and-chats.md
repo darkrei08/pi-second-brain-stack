@@ -42,6 +42,34 @@ The gateway ranks at most one deciding segment per collection and returns the be
 
 The route performs no provider call. The caller may ignore the proposal or use a returned collection id in a later scoped query. An empty candidate list is valid and leaves the caller's scope unchanged.
 
+## Propose filing an ingested document
+
+Automatic filing is proposal-only. `POST /v1/documents/collections/suggest` compares the target document's first three segments with active segments already assigned to owner collections and returns the same candidate evidence shape:
+
+```json
+{
+  "document_id": "urn:document:target",
+  "candidates": [
+    {
+      "collection_id": "collection-a",
+      "score": 0.42,
+      "segment_id": "urn:segment:evidence"
+    }
+  ]
+}
+```
+
+This route does not write membership. To accept candidates, call `POST /v1/documents/collections/confirm` explicitly:
+
+```json
+{
+  "document_id": "urn:document:target",
+  "collection_ids": ["collection-a"]
+}
+```
+
+The confirmation is owner-scoped, validates every collection, and inserts memberships with conflict-safe idempotency. Repeating the confirmation does not create a duplicate membership. Ingest response shape is unchanged; filing proposals are requested separately.
+
 ## Measured bound
 
-On a local PostgreSQL fixture containing 101 active documents and one collection, 30 sequential HTTP requests to `POST /v1/collections/suggest` measured p50 7.39 ms, p95 11.20 ms, and max 11.81 ms on loopback. Retrieval is bounded (`limit <= 20`, at most ten returned collections). The measurement used no model provider and the provider callback was never configured or called.
+On a local PostgreSQL fixture containing 101 active documents and one collection, 30 sequential HTTP requests to `POST /v1/collections/suggest` measured p50 7.39 ms, p95 11.20 ms, and max 11.81 ms on loopback. Retrieval is bounded (`limit <= 20`, first three source segments for filing proposals, at most ten returned collections). The measurement used no model provider and the provider callback was never configured or called.
