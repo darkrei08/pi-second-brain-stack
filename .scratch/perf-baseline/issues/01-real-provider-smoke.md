@@ -1,7 +1,7 @@
 # Real provider compatibility smoke
 
 Type: measurement
-Status: blocked
+Status: resolved
 Blocked by: CLIProxyAPI did not accept the requested prefixed chat model and did not expose a usable embedding route through the gateway adapter.
 
 ## Scope
@@ -65,3 +65,25 @@ Two facts pinned by direct probes of the proxy, with the credential read from th
 - `deepseek-v4.1-flash` answers `200` and reports usage: `prompt_tokens` 31, `completion_tokens` 4, `total_tokens` 35, with a listed cost. Use that model for the smoke, and note that the provider does report usage while the gateway currently discards it (see the gateway-resilience ticket on token usage).
 
 The base URL in `/root/.pi/agent/cliproxyapi.json` is the bare origin; the OpenAI-compatible routes live under `/v1`, so `ANSWER_BASE_URL` must be `http://127.0.0.1:8317/v1`.
+
+## Answer
+
+Measured on 2026-11-02 against the local proxy at `http://127.0.0.1:8317/v1` with `deepseek-v4.1-flash`, a disposable `pgvector/pgvector:pg17` instance and the gateway from the repository at `ed4176e`. The first attempt failed because `claude-sonnet-4-6` sits in upstream quota cooldown (`429 model_cooldown`) and because the base URL needed the `/v1` suffix; both are recorded in the comments above and were not code defects.
+
+| Call | Status | Client latency | Provider usage |
+|---|---|---|---|
+| `POST /v1/documents/ingest` | 200 | 11.03 ms | 1 segment |
+| `POST /v1/answers` | 200 | 1128.23 ms | 260 input, 39 output, 299 total |
+| `POST /v1/chat/completions` | 200 | 1107.80 ms | 260 input, 48 output, 308 total |
+
+Audit lines, verbatim:
+
+```text
+{"event":"model_call","kind":"chat","route":"GET /readyz","owner_id":null,"model_id":"deepseek-v4.1-flash","outcome":"failed","duration_ms":875,"provider_host":"127.0.0.1:8317"}
+{"event":"model_call","kind":"chat","route":"POST /v1/answers","owner_id":"perf-real-provider-owner","model_id":"deepseek-v4.1-flash","outcome":"ok","duration_ms":1125,"provider_host":"127.0.0.1:8317"}
+{"event":"model_call","kind":"chat","route":"POST /v1/chat/completions","owner_id":"perf-real-provider-owner","model_id":"deepseek-v4.1-flash","outcome":"ok","duration_ms":1105,"provider_host":"127.0.0.1:8317"}
+```
+
+Two findings that outlive the smoke. First, the gateway answered both routes while `/readyz` reported `503`, because the readiness probe at that commit spent one completion token and that call failed, so a healthy provider was reported unready: a false negative, corrected afterwards by probing provider metadata instead of generating tokens. Second, the provider reports token usage on every call and the gateway discards it, which is the token-usage ticket in `.scratch/gateway-resilience/`.
+
+Hybrid retrieval was not exercised: the proxy answers `404` on `/v1/embeddings`, so an embedding provider separate from this proxy is required on this host. Cleanup was verified: container, gateway process and the temporary checkout were removed.

@@ -21,3 +21,7 @@ Blocked by: none
 ## Comments
 
 2026-11-03 correction: the previous readiness implementation spent a real completion token and emitted a synthetic `model_call` with a null owner. It now uses the chat client's credentialed model-list capability, preserving the 30-second cache while avoiding paid completions and polluted audit records; the probe is independently capped at three seconds so provider stalls do not hold readiness indefinitely.
+
+## Comments
+
+Runtime verification of the corrected probe, against the real proxy with `deepseek-v4.1-flash`, a disposable `pgvector/pgvector:pg17` instance and the gateway from `cffecd2`: `/readyz` answered `200 {"status":"ready"}` in 52 ms on the first call and `200` in 4 ms on the second, from the cache. Zero `model_call` audit events were written by the probes, and the provider key never appeared in the gateway output. The previous implementation, which spent one completion token, had answered `503` on the same working provider because that token call failed, so this correction removed a false negative, not only a cost.

@@ -2,7 +2,7 @@
 
 ## Summary
 
-The fake-provider gateway path is bounded through concurrency 2 and returned explicit `429 model_busy` responses at concurrency 4. Retrieval remained successful through concurrency 4 in this bounded run. The real-provider smoke is blocked by CLIProxyAPI compatibility: the prefixed chat model returned 400 and the embedding route returned 404.
+The fake-provider gateway path is bounded through concurrency 2 and returned explicit `429 model_busy` responses at concurrency 4. Retrieval remained successful through concurrency 4 in this bounded run. The real-provider smoke now passes: `deepseek-v4.1-flash` answered a grounded question in 1128.23 ms and a chat completion in 1107.80 ms, each reporting usage, against the local proxy at `http://127.0.0.1:8317/v1`. The proxy does not serve embeddings, so hybrid retrieval needs a separate embedding provider on this host.
 
 ## Measurements
 
@@ -10,8 +10,9 @@ The fake-provider gateway path is bounded through concurrency 2 and returned exp
 
 <table>
 <tr><th>Request</th><th>Model</th><th>Client latency</th><th>Status</th><th>Provider host</th></tr>
-<tr><td>POST /v1/answers</td><td>cliproxyapi/deepseek-v4.1-flash</td><td>104.80 ms</td><td>502</td><td>127.0.0.1:8317</td></tr>
-<tr><td>POST /v1/retrieval/query hybrid</td><td>deepseek-v4.1-flash</td><td>10.46 ms</td><td>502</td><td>127.0.0.1:8317</td></tr>
+<tr><td>POST /v1/answers</td><td>deepseek-v4.1-flash</td><td>1128.23 ms</td><td>200</td><td>127.0.0.1:8317</td></tr>
+<tr><td>POST /v1/chat/completions</td><td>deepseek-v4.1-flash</td><td>1107.80 ms</td><td>200</td><td>127.0.0.1:8317</td></tr>
+<tr><td>POST /v1/retrieval/query hybrid</td><td>not exercised</td><td>n/a</td><td>n/a</td><td>proxy answers 404 on /v1/embeddings</td></tr>
 </table>
 
 Audit lines:
