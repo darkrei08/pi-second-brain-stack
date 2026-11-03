@@ -17,6 +17,18 @@ docker compose --env-file shell-stack.env ps
 
 The gateway container applies pending repository migrations before starting. Both the gateway and shell use Docker host networking so the gateway can enforce its loopback-only cleartext provider rule: it uses `deepseek-v4.1-flash` through the host proxy at `http://127.0.0.1:8317/v1`. Hybrid retrieval is deliberately not configured because this proxy does not provide `/v1/embeddings`.
 
+## First start
+
+Open WebUI 0.6.5 renders no sign-up control on a fresh database: `/auth` shows only email, password, and `Sign in` even with zero users and `enable_signup` true. Create the first account, which becomes the administrator, through the shell's own endpoint, then sign in normally.
+
+```bash
+curl --silent --request POST http://127.0.0.1:3300/api/v1/auths/signup \
+  --header 'content-type: application/json' \
+  --data '{"name":"operator","email":"operator@localhost","password":"<a strong local password>"}'
+```
+
+Two shell gaps are known and belong upstream, not to this repository: no control exists to create the first account from the page, and the sidebar's `New Folder` control is not reachable by keyboard (`visibility: hidden` on the outer button, `tabindex: -1` on its inner button). Creating a folder therefore needs a pointer today. Both are recorded against WCAG 2.2 SC 2.1.1, 2.4.3 and 4.1.2 in `.scratch/projects-and-chats/issues/07-accessibility-of-the-shell-surface.md`, with the recorded keyboard sweep.
+
 The shell service sets `ENABLE_FOLDERS=true`, routes its OpenAI-compatible model connection to the gateway, and keeps direct provider connections disabled. The filter and pipe source directories are mounted read-only at `/app/backend/data/functions/filters` and `/app/backend/data/functions/pipes`. Open WebUI 0.6.5 stores Functions in its database rather than auto-loading Python files from a documented directory, so `integrations/open-webui/bootstrap.py` imports those mounted files into the shell's Function store at startup. The filter is global and active; the pipe is active and appears as a model after the shell starts.
 
 ## Runtime proof
