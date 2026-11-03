@@ -23,6 +23,7 @@ Budget is real: at the shipped default of `GATEWAY_MODEL_CONCURRENCY=4`, the mea
 - Document reorganisation: the gateway owns membership moves through `POST /v1/documents/collections/move`; Open WebUI owns display renames, and document order remains presentation-only. Existing citations remain valid because collection membership is not part of citation provenance; `.scratch/projects-and-chats/issues/04-reorganise-project-documents.md`.
 - Parallel chats: the gateway default is three model slots with fail-fast `429 model_busy`, chosen to cover one to three concurrent chats without queue latency; `.scratch/projects-and-chats/issues/08-size-the-gateway-for-parallel-chats.md`.
 - Lexical questions use a bounded OR query over `simple` lexemes and rank by term overlap, preserving owner, retention, and collection scope; `.scratch/projects-and-chats/issues/11-lexical-retrieval-must-survive-a-question.md`.
+- Shell-visible gateway refusals name the cause and next action while preserving their error contracts; gateway and Open WebUI Filter/Pipe validation and streaming-failure paths are covered, while the manual keyboard walkthrough remains open; `.scratch/projects-and-chats/issues/07-accessibility-of-the-shell-surface.md`.
 
 ## Not yet specified
 

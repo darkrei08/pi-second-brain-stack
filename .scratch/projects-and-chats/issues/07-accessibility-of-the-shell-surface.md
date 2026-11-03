@@ -13,3 +13,9 @@ The operator's own daily use includes the shell, so the whole path has to be ope
 - A keyboard-only walkthrough of the project flow with the exact steps and the result of each, run against a live stack or marked blocked with the reason.
 - Every gateway error the person can see is checked for a message that names the cause and the next action.
 - Any gap that is ours is a ticket of its own with the failing step; any gap that is the shell's is recorded as an upstream note.
+
+## Answer
+
+Fixed the gateway and Open WebUI-controlled error surface: authentication, unexpected gateway failures, streaming model failures, and model-capacity refusals now name the cause and the next action without changing their codes or HTTP statuses. Added public-seam gateway tests for malformed and empty bodies, non-object bodies, research, chat, collection suggestion, document ingest, unconfigured readiness, unavailable streaming, and pre-header/post-header streaming timeouts. Added Python `unittest` coverage for missing and empty messages, invalid folder ids, missing tokens, malformed retrieval matches and citations, unresolved and stale citations, and Pipe identity/body validation.
+
+The manual keyboard-only browser walkthrough remains open and is not claimed here. The live shell interaction, screen-reader behavior, and Open WebUI-owned accessibility gaps remain for the follow-up walkthrough.
