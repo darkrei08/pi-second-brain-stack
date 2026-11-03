@@ -15,6 +15,8 @@ Settled before this map and not reopened: the primary surface is Open WebUI ([in
 
 ## Decisions so far
 
+- [Move the gateway into its own repository](issues/01-create-the-backend-repository.md): `darkrei08/pi-second-brain-backend` exists at `9082979`, 47 commits of `src/` history before and after the filter, the import cycle broken before the move, and its own CI. Verified from a fresh clone: 174 tests, 141 pass, 0 fail.
+- [Decide where the tracker test lives](issues/03-decide-the-fate-of-the-tracker-test.md): it stays in this repository, where the tracker is. It caught a missing matrix row during this program.
 - [Move the plugin package into its own repository](issues/02-create-the-shell-repository.md): the shell repository exists at `darkrei08/pi-second-brain-shell`, history kept for the three commits that touched the prefix, 17 plugin tests green in its own CI, package at the repository root, BSD 3-Clause recorded for the pinned tag. The local copy still needs removing, which is ticket 05.
 - The product program, meaning identity, work groups, group scoping and the end-to-end proof, moved to [identity and work groups](../identity-and-work-groups/map.md), which carries the evidence from the gap analysis. The drafts numbered 05 to 11 here duplicated it with less evidence and are dropped. This map keeps the repository split and the contract.
 
