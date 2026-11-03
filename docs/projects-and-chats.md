@@ -8,6 +8,12 @@ Open WebUI folders/projects already carry the chat context: the shell documentat
 
 The gateway therefore does not add or persist project instructions. `src/answer-question.js` keeps the answer safety prompt server-owned, while the gateway receives the question and retrieval scope. There is no caller-controlled project-instructions field to validate or override.
 
+## Project names and tags
+
+Open WebUI owns folder/project names and renaming, while tags are conversation metadata searchable through the shell's history search. See [Folders & Projects](https://docs.openwebui.com/features/chat-conversations/chat-features/conversation-organization/) and [History & Search](https://docs.openwebui.com/features/chat-conversations/chat-features/history-search/).
+
+Gateway collections remain opaque retrieval scopes. They intentionally have no name or tag column, and no tag search route is needed: adding one would mirror shell-owned organization state and violate the one-source-of-truth boundary.
+
 ## Suggest collections for a question
 
 `POST /v1/collections/suggest` requires the authenticated caller and accepts:
