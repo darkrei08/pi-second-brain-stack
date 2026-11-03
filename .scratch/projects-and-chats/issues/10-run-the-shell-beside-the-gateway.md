@@ -1,7 +1,7 @@
 # 10: Run the shell beside the gateway
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -17,3 +17,22 @@ Decide and implement the smallest reproducible stack: the pinned shell image and
 - The shell serves its UI and the gateway answers a retrieval request that carries a folder scope, proven by a recorded command and its output.
 - One page describing the start procedure, the two stores and their separate backup and deletion boundaries.
 - The pinned version and its licence position, with the URL that was read.
+
+## Resolution
+
+Implemented in `compose.yaml` with `ghcr.io/open-webui/open-webui:v0.6.5`, PostgreSQL `pgvector/pg17`, and a Node 22 gateway. The shell mounts the filter and pipe source directories read-only and bootstraps them into Open WebUI's Function store without a browser step. Secrets are supplied by the untracked `shell-stack.env`; `.env.shell-stack.example` is committed and `.gitignore` covers the real file.
+
+Recorded runtime evidence on 2026-11-03:
+
+```text
+$ curl --fail http://127.0.0.1:3300/health
+{"status":true}
+$ curl --fail http://127.0.0.1:18080/healthz
+{"status":"ok"}
+$ POST /v1/retrieval/query with collection_ids=[folder-alpha]
+{"retrieval":{"mode":"lexical","model_id":null,"matches":1,"semantic_matches":0},"matches":[{"document_id":"urn:document:shell-stack-smoke","source_label":"shell-stack-smoke.txt","owner_id":"operator-owner","retention_state":"active"}]}
+```
+
+The full retrieval response contains the scoped segment and citation provenance; the smoke used `collection_ids: ["folder-alpha"]`. The gateway applied all five migrations (`{"applied":5,"total":5}` on the first start, then `{"applied":0,"total":5}`). Open WebUI's Function database contains active global `gateway-retrieval` and `gateway-research` records. The pinned version source and licence URL are recorded in `docs/shell-stack.md`.
+
+Verification: `pnpm test` passed 169 tests with 32 expected skips; the Open WebUI suite passed 8/8 with `python3 -m unittest discover`; Python compilation, Compose config validation, and `git diff --check` passed. `pytest` was not available in the host Python environment. Browser login and a chat completion through the shell UI were not exercised; the health endpoint and direct scoped gateway retrieval were exercised instead.
