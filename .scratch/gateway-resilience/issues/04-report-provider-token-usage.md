@@ -1,7 +1,7 @@
 # 04: Report the tokens a provider call spent
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: none
 
 ## Question
@@ -14,3 +14,11 @@ Blocked by: none
 - If usage also reaches the response, the field is documented and defaults to absent.
 - A test with a fake provider that returns usage and one that returns none.
 - No payload text in the usage fields.
+
+## Answer
+
+The provider's usage object is carried through instead of discarded. The audit line now includes numeric `prompt_tokens` and `completion_tokens` when the provider reports them, and omits both fields when it does not, so a provider that answers without usage does not produce a misleading zero. No payload text enters those fields; the record still carries only metadata.
+
+Evidence: `test/chat-client.test.js` covers a provider that reports usage and one that does not; `test/gateway-server.test.js` asserts the audit event shape. Measured against the real proxy before the change, `/v1/answers` returned 260 input and 39 output tokens that the gateway dropped; the same fields now reach the audit line.
+
+Commit: `925327e`.
