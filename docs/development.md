@@ -1,6 +1,16 @@
 # Local development
 
-This repository contains public reference documentation, a safe PostgreSQL/pgvector skeleton, and a Node 22 package under `src/` that exposes deterministic segmentation, parser normalization, the PostgreSQL storage seams, the citation resolver, the embedding backfill loop, and a loopback HTTP gateway with grounded answers, through `src/index.js`, the `segment-document` CLI, and `pnpm start`. It does not mount the P.IVA corpus.
+This repository contains public reference documentation and the reference stack. The backend and shell packages are maintained in their own repositories; this repository does not mount the P.IVA corpus.
+
+## Check tracker changes
+
+Before pushing changes under `.scratch/` or `odd/`, run the dependency-free repository check:
+
+```bash
+npm test
+```
+
+It verifies the traceability matrix has no stale markers, includes every resolved ticket, points at existing local files, and references only commits present in this repository history.
 
 ## Requirements
 
