@@ -20,6 +20,7 @@ Budget is real: at the shipped default of `GATEWAY_MODEL_CONCURRENCY=4`, the mea
 - Attachment bridge: use the explicit `ingest-directory` command outside the chat request because Open WebUI documents asynchronous extraction but not extraction completion before a Filter runs; `.scratch/projects-and-chats/issues/09-shell-attachment-ingest.md`.
 - Standing instructions: Open WebUI owns per-folder/project system prompts and knowledge context for chats; the gateway keeps its server-owned safety prompt and adds no project-instructions request field; `.scratch/projects-and-chats/issues/02-project-standing-instructions.md`.
 - Names and tags: Open WebUI owns folder/project names and conversation tags/search; gateway collections remain opaque retrieval scopes with no label or tag dimension; `.scratch/projects-and-chats/issues/03-project-name-and-tags.md`.
+- Document reorganisation: the gateway owns membership moves through `POST /v1/documents/collections/move`; Open WebUI owns display renames, and document order remains presentation-only. Existing citations remain valid because collection membership is not part of citation provenance; `.scratch/projects-and-chats/issues/04-reorganise-project-documents.md`.
 
 ## Not yet specified
 
