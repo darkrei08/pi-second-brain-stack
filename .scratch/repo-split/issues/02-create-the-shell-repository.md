@@ -27,4 +27,4 @@ Licence: BSD 3-Clause read at `https://github.com/open-webui/open-webui/blob/v0.
 
 Bootstrap read back on a disposable container: both `gateway-retrieval` and `gateway-research` present in the shell's Function store.
 
-Still open, and now its own ticket: this repository's reference stack still mounts `integrations/open-webui/` from its own tree. Until ticket 05 lands, the source exists twice in practice, which is what the extraction was meant to end.
+Ticket 05 closed the remaining duplication: the reference stack mounts `filters/`, `pipes/`, and `bootstrap.py` from the pinned `pi-second-brain-shell` checkout, and this repository no longer contains `integrations/open-webui/`.

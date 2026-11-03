@@ -55,7 +55,7 @@ The gateway is the product API. LibreChat, OpenChat, and the Pi extension must n
 
 The settled decision is Open WebUI, recorded with its evidence in [the interface stack map](.scratch/interface-stack/map.md) (V1): it is the only evaluated shell that forwards a folder scope (`body.folder_id`, `body.files`) and a verified caller identity into an external retrieval hook without patching the shell, so this gateway stays the single corpus. Its licence is BSD-3 up to v0.6.5 and carries a branding restriction above fifty users after that, which is inert for a single-owner deployment; the pinned version and its licence position are recorded in [docs/shell-stack.md](docs/shell-stack.md).
 
-The running reference stack is [compose.yaml](compose.yaml), and the integration is one filter for retrieval plus one pipe that exposes research as a model.
+The running reference stack is [compose.yaml](compose.yaml). It mounts the published packages from operator checkouts at `../second-brain-backend` and `../second-brain-shell`, configured by `BACKEND_REPO` and `SHELL_REPO` in the untracked stack env file. Follow [Shell stack](docs/shell-stack.md) to clone and pin `darkrei08/pi-second-brain-backend` at `90829792807c1e371122f7364eaa0c56111fc335` and `darkrei08/pi-second-brain-shell` at `0b76a702e3d8289e2cea331f38a272438ce5d1a1`. When a package is versioned, update the checkout and both recorded pins; do not copy source into this repository. The integration is one filter for retrieval plus one pipe that exposes research as a model.
 
 ### Evaluated alternative: LibreChat
 

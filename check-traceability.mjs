@@ -5,10 +5,11 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
-const root = resolve(fileURLToPath(new URL('../', import.meta.url)));
+const root = resolve(fileURLToPath(new URL('./', import.meta.url)));
 const matrixPath = join(root, 'odd/traceability.md');
 const staleMarkers = ['commit pending', 'native review pending'];
-const localPathPattern = /(?:\.scratch|odd|src|test|scripts|docker|integrations|docs|\.github)\/[A-Za-z0-9._/-]+|(?:README\.md|compose\.yaml|package\.json|\.env\.shell-stack\.example)/g;
+const referencePattern = /(?:^|[\s,;])((?:backend|shell)(?:\/[A-Za-z0-9._/-]+)?|(?:\.scratch|odd|src|test|scripts|docker|integrations|docs|\.github)\/[A-Za-z0-9._/-]+|(?:README\.md|compose\.yaml|package\.json|check-traceability\.mjs|\.env\.shell-stack\.example))(?=$|[\s,;.)])/g;
+const publishedPathPattern = /^(?:backend|shell)(?:\/|$)/;
 const commitPattern = /\bcommits?\s+`?([0-9a-f]{7,40})`?/gi;
 
 async function ticketFiles() {
@@ -39,7 +40,7 @@ function matrixReferences(rows) {
   for (const [index, row] of rows.entries()) {
     const refs = new Set();
     for (const match of row.matchAll(/`([^`]+)`/g)) {
-      for (const reference of match[1].matchAll(localPathPattern)) refs.add(reference[0]);
+      for (const reference of match[1].matchAll(referencePattern)) refs.add(reference[1]);
     }
     references.set(index + 1, [...refs]);
   }
@@ -87,6 +88,7 @@ for (const [rowNumber, refs] of references) {
   if (refs.length === 0) errors.push(`matrix row ${rowNumber} has no local file reference`);
   for (const reference of refs) {
     fileReferences.add(reference);
+    if (reference.startsWith('backend/') || reference.startsWith('shell/')) continue;
     if (!(await exists(reference))) errors.push(`matrix row ${rowNumber} points at missing file: ${reference}`);
   }
 }

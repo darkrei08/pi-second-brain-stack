@@ -15,7 +15,7 @@ A retrieval query that is a question, which is what a person types, returns noth
 | `scade` | 1 match, mode `lexical` |
 | `quando scade il contratto di locazione` | 0 matches, mode `empty` |
 
-The document is `Il contratto di locazione scade il trentuno dicembre.` The question shares three content words with it and still returns nothing, because `src/postgres-store.js` matches with `plainto_tsquery('simple', ...)`, which ANDs every term, under a configuration that does no stemming and removes no stopwords. One absent word (`quando`, `di`) is enough to drop the document.
+The document is `Il contratto di locazione scade il trentuno dicembre.` The question shares three content words with it and still returns nothing, because `backend/src/postgres-store.js` matches with `plainto_tsquery('simple', ...)`, which ANDs every term, under a configuration that does no stemming and removes no stopwords. One absent word (`quando`, `di`) is enough to drop the document.
 
 The consequence is the failure this gateway exists to prevent: the shell sends a question, the filter grounds it on an empty result set, and the model answers without evidence.
 

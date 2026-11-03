@@ -41,10 +41,10 @@ The runtime must support owner-scoped export, restore testing, audit events, tim
 
 ## Schema migrations and restore
 
-The SQL files under `docker/postgres/init/` are the single source of schema. Apply pending files before deploying code that requires them:
+The SQL files under the pinned backend checkout's `docker/postgres/init/` are the single source of schema. Apply pending files from that checkout before deploying code that requires them:
 
 ```bash
-DATABASE_URL="$DATABASE_URL" pnpm migrate
+(cd ../second-brain-backend && DATABASE_URL="$DATABASE_URL" npm run migrate)
 ```
 
 Before any migration on a volume containing data, take and verify a database backup:

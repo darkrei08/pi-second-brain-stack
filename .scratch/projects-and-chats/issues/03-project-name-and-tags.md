@@ -12,7 +12,7 @@ The operator wants to rename a project and label it with tags or hashtags. Verif
 
 - Verified inventory of the shell's own naming and tagging capability, with URLs.
 - Either a decision to implement tags on collections with the exact schema and route, or a recorded "the shell owns it" with the reason.
-- If a schema change is needed, it is a forward-only migration numbered after the last one in `docker/postgres/init`.
+- If a schema change is needed, it is a forward-only migration numbered after the last one in the pinned backend checkout's `docker/postgres/init`.
 
 ## Answer
 

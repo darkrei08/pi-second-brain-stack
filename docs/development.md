@@ -15,45 +15,27 @@ It verifies the traceability matrix has no stale markers, includes every resolve
 ## Requirements
 
 - Git
-- Node.js 22 or newer (the package declares `"node": ">=22"`)
-- pnpm (the package declares `"packageManager"`; run `corepack enable pnpm` once)
+- Node.js 22 or newer for the published backend checkout
 - Docker Engine or Docker Desktop
 - Docker Compose v2
 
-Install the dependencies from the committed lockfile:
+The backend and shell have their own install and test commands in their published repositories. This repository's only Node command is `npm test`, the tracker check described above. The reference stack uses `npm ci`, `npm run migrate`, and `npm start` inside the pinned backend checkout.
 
-```bash
-pnpm install --frozen-lockfile
-```
+## Start the reference stack
 
-`pnpm run verify` runs both suites locally. The script is not named `ci` because `pnpm ci` is a built-in alias for `pnpm install --frozen-lockfile`. CI runs the same scripts: `.github/workflows/ci.yml` has a unit job that calls `pnpm run verify`, and an integration job that starts `pgvector/pgvector:pg17`, applies the schema with `pnpm migrate`, and runs `pnpm run test:integration`.
-
-## Start the database skeleton
-
-Set the values in the shell or in an untracked local `.env` file. Use a random local password.
-
-```bash
-export POSTGRES_DB=rag
-export POSTGRES_USER=rag
-export POSTGRES_PASSWORD='replace-this-locally'
-docker compose config
-docker compose up -d postgres
-docker compose ps
-```
-
-The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/init/` enable `vector` and `pg_trgm` and create `documents`, `segments`, `segment_embeddings`, `embedding_models`, `collections`, and `document_collections` with their indexes. Docker runs them only on an empty data volume; an existing volume is upgraded in place with `DATABASE_URL=... pnpm migrate`, which applies the same files forward-only and records them in `schema_migrations`. No P.IVA path is mounted by this reference file.
+Use [Shell stack](shell-stack.md) to clone the two published checkouts, create the untracked env file, and run the loopback-only stack. PostgreSQL is bound to `127.0.0.1:55433`; the backend owns its migrations and schema in the backend checkout.
 
 ## Run the gateway
 
-The package ships one loopback-only HTTP boundary. It authenticates one bearer token, derives `owner_id` server-side from configuration, and exposes liveness, readiness, ingest, retrieval, citation revalidation, and model inspection. It adds no dependency and no build step.
+The published backend checkout ships the loopback-only HTTP boundary. Its README documents standalone operation; the reference Compose file supplies the database, credentials, provider settings, and `npm start` command.
 
 Two identity modes exist and they are mutually exclusive. `GATEWAY_PRINCIPALS` is the recommended one: a JSON array of `{"token": ..., "owner_id": ...}`, where the presented bearer token alone selects the owner, so a caller cannot name an identity. The legacy mode keeps one shared `GATEWAY_TOKEN` plus `GATEWAY_OWNER_ID`, and an optional `GATEWAY_SHELL_USERS` mapping that lets any token holder choose among the mapped owners. Setting `GATEWAY_PRINCIPALS` together with any of those three variables is refused, never merged. Rotation means editing the variable and restarting the process; there is no in-process revocation.
 
 ```bash
-export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag'
+export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55433/rag'
 # recommended: one credential per principal; the bearer token alone decides the owner
 export GATEWAY_PRINCIPALS='[{"token":"<32+ random characters>","owner_id":"operator-owner"}]'
-pnpm start
+npm start
 ```
 
 On `SIGINT` or `SIGTERM`, the gateway waits at most five seconds for each of the HTTP server and PostgreSQL pool shutdown steps. A rejected or timed-out step is reported to stderr, the remaining step is attempted, and the process exits non-zero; a clean shutdown exits zero.
@@ -61,7 +43,7 @@ On `SIGINT` or `SIGTERM`, the gateway waits at most five seconds for each of the
 The legacy single-token mode remains available for a one-operator deployment:
 
 ```bash
-export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag'
+export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55433/rag'
 export GATEWAY_TOKEN="$(openssl rand -base64 32)"
 export GATEWAY_OWNER_ID=operator-owner
 # optional: map shell user ids to owners, and an optional embedder for hybrid mode
@@ -74,7 +56,7 @@ export ANSWER_API_KEY='local-key'
 # required for remote providers; comma-separated exact hostnames
 export EMBEDDING_ALLOWED_HOSTS='api.example.com'
 export ANSWER_ALLOWED_HOSTS='api.example.com'
-pnpm start
+npm start
 ```
 
 `ANSWER_ALLOWED_HOSTS` and `EMBEDDING_ALLOWED_HOSTS` are comma-separated hostnames. Remote model endpoints fail closed unless their exact hostname is listed; matching is case-insensitive and ignores one trailing dot. Loopback endpoints need no entry. Leave either variable unset only when that client uses loopback.
@@ -131,14 +113,14 @@ curl -N -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: applicat
 
 ## Open WebUI Filter and Pipe
 
-For the reproducible PostgreSQL, gateway, and shell stack, use [Shell stack](shell-stack.md). The standalone plugins are in `integrations/open-webui/filters/gateway_retrieval.py` and `integrations/open-webui/pipes/gateway_research.py`. Add each file through the Open WebUI filter/Pipe configuration, then set the admin-only `GATEWAY_URL` and `GATEWAY_TOKEN` Valves. The default URL is `http://127.0.0.1:8080`; non-loopback gateway URLs must use HTTPS. Both plugins disable redirects, use a 10-second HTTP timeout, and return masked errors.
+For the reproducible PostgreSQL, gateway, and shell stack, use [Shell stack](shell-stack.md). The standalone plugins are in the pinned `pi-second-brain-shell` checkout at `filters/gateway_retrieval.py` and `pipes/gateway_research.py`. Add each file through the Open WebUI filter/Pipe configuration, then set the admin-only `GATEWAY_URL` and `GATEWAY_TOKEN` Valves. The default URL is `http://127.0.0.1:8080`; non-loopback gateway URLs must use HTTPS. Both plugins disable redirects, use a 10-second HTTP timeout, and return masked errors.
 
 The Filter maps `body.folder_id` directly to `collection_ids: [folder_id]` for `/v1/retrieval/query`, sends `__user__.id` as `x-shell-user-id`, injects retrieved text as explicitly untrusted evidence, and clears the handled `folder_id` so built-in folder retrieval does not run again. With no selected folder it omits `collection_ids` and uses the gateway's owner-wide behavior. The Pipe sends the latest user message and maps `__metadata__.folder_id` the same way to `/v1/research`; its response displays citations and uncertainty. An explicit unknown or foreign folder remains scoped and does not fall back to owner-wide retrieval. The bearer token and gateway URL come only from admin Valves, never request data.
 
 Run the shell-independent tests with Python 3 and the `httpx` and `pydantic` packages available (both are dependencies of Open WebUI):
 
 ```bash
-python3 -m unittest discover -s integrations/open-webui/tests -v
+(cd ../second-brain-shell && python3 -m unittest discover -s tests -v)
 ```
 
 These tests use mocked HTTP responses and do not import or start Open WebUI. Without an installed Open WebUI shell, hook discovery/loading, Valve configuration in its UI, real `folder_id` propagation, and live shell-to-gateway/provider behavior cannot be verified. TLS termination remains the responsibility of an operator-controlled reverse proxy and is not included in the loopback gateway.
@@ -149,18 +131,18 @@ For the documented manual bridge from an Open WebUI project folder to the gatewa
 
 ## Verify the package
 
-`pnpm test` runs the unit suites. The integration file self-skips unless `TEST_DATABASE_URL` points at a reachable PostgreSQL instance with the init scripts applied, which is what the `test:integration` script runs. Both scripts are defined in `package.json`.
+The backend owns its unit and integration suites. Run them from the pinned backend checkout; run `npm test` here for the tracker before changing tracker documents.
 
 ```bash
-pnpm test
-TEST_DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag' pnpm run test:integration
+(cd ../second-brain-backend && npm ci && npm test)
+(cd ../second-brain-backend && DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55433/rag' npm run migrate)
 ```
 
 ## Stop and remove local state
 
 ```bash
-docker compose down
-# Add -v only when intentionally deleting the local database volume.
+docker compose -p second-brain-stack-reference --env-file shell-stack.env down -v
+# The explicit project name avoids touching an operator's second-brain-stack-postgres-1.
 ```
 
 ## What is not included yet

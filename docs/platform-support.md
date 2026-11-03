@@ -1,6 +1,6 @@
 # Platform support
 
-The runtime is designed around one private HTTP API. That gateway is not implemented yet: no HTTP server exists in `src/`, and the only shipped CLI (`segment-document`) reads a JSON document from stdin. Clients never connect directly to PostgreSQL, vector indexes, object storage, workers, or graph data.
+The runtime is designed around one private HTTP API implemented by the pinned backend checkout. The gateway and its `segment-document` CLI live in that checkout; clients never connect directly to PostgreSQL, vector indexes, object storage, workers, or graph data.
 
 ## Recommendation
 

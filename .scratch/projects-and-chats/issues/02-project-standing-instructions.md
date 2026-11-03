@@ -18,7 +18,7 @@ A chat started inside a project should answer as that project, not only search i
 
 Open WebUI already owns per-folder/project standing context. Its official documentation says folders/projects can define a system prompt and knowledge base that apply to chats inside them: <https://docs.openwebui.com/features/chat-conversations/chat-features/conversation-organization/> and <https://docs.openwebui.com/features/workspace/knowledge/>. The shell therefore supplies the project behavior; the gateway must not add a second project-instructions field or persist it in PostgreSQL.
 
-The gateway continues to own its safety prompt in `src/answer-question.js` (`SYSTEM_MESSAGE`), and the answer use case receives only the validated question, owner, retrieval scope, and server-selected model settings. No request field, migration, or new test is needed for this ticket because the verified shell-owned capability is the selected design. A caller cannot override the gateway-owned safety prompt through project storage because no such caller-controlled storage seam exists.
+The gateway continues to own its safety prompt in `backend/src/answer-question.js` (`SYSTEM_MESSAGE`), and the answer use case receives only the validated question, owner, retrieval scope, and server-selected model settings. No request field, migration, or new test is needed for this ticket because the verified shell-owned capability is the selected design. A caller cannot override the gateway-owned safety prompt through project storage because no such caller-controlled storage seam exists.
 
 ## Verification
 

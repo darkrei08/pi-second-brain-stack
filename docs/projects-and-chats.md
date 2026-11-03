@@ -6,7 +6,7 @@ The shell owns projects, chats, pins, and folder names. The gateway owns documen
 
 Open WebUI folders/projects already carry the chat context: the shell documentation describes per-folder system prompts and knowledge bases that apply to chats in that folder. See [Folders & Projects](https://docs.openwebui.com/features/chat-conversations/chat-features/conversation-organization/) and [Knowledge](https://docs.openwebui.com/features/workspace/knowledge/).
 
-The gateway therefore does not add or persist project instructions. `src/answer-question.js` keeps the answer safety prompt server-owned, while the gateway receives the question and retrieval scope. There is no caller-controlled project-instructions field to validate or override.
+The gateway therefore does not add or persist project instructions. The published backend checkout keeps the answer safety prompt server-owned, while the gateway receives the question and retrieval scope. There is no caller-controlled project-instructions field to validate or override.
 
 ## Project names and tags
 

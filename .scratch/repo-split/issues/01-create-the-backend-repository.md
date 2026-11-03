@@ -23,4 +23,4 @@ History kept with `git filter-branch --index-filter` from `b22dd08`, retaining `
 
 The extracted checkout has an npm lockfile, standalone README, migration command, and CI with `pgvector/pgvector:pg17`. A fresh clone passed the npm CLI `ci` install and `npm test`: 174 tests, 141 passed, 33 skipped, 0 failed. On disposable pgvector/pg17 at loopback port 32776, migration applied 5/5 files and `npm run test:integration` passed 38/38; those tests cover `/healthz` and grounded `/v1/answers`.
 
-The GitHub `main` history was audited with `git rev-list --objects`: 0 forbidden artifact path matches and 0 `traceability.test.js` matches; a blob scan found only synthetic test key fixtures, not credentials. The reference Compose update remains a separate follow-up because this unit only publishes the backend.
+The GitHub `main` history was audited with `git rev-list --objects`: 0 forbidden artifact path matches and 0 `traceability.test.js` matches; a blob scan found only synthetic test key fixtures, not credentials. The reference Compose now consumes the pinned checkout through ticket 05; this repository keeps no backend source copy.

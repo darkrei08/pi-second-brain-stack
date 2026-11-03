@@ -24,4 +24,4 @@ Citations already issued are not invalidated by a move: they carry document/segm
 
 ## Verification
 
-The move route is covered by `test/gateway-server.test.js` and the live gateway integration; the PostgreSQL storage test proves replacement and one-row membership under the transaction seam.
+The move route is covered by `backend/test/gateway-server.test.js` and the live gateway integration; the PostgreSQL storage test proves replacement and one-row membership under the transaction seam.

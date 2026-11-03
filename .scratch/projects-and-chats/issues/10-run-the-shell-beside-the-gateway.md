@@ -12,7 +12,7 @@ Decide and implement the smallest reproducible stack: the pinned shell image and
 
 ## Acceptance criteria
 
-- A shell service in `compose.yaml`, image pinned by tag, with the filter and pipe mounted read-only from `integrations/open-webui/`.
+- A shell service in `compose.yaml`, image pinned by tag, with the filter and pipe mounted read-only from the pinned `pi-second-brain-shell` checkout configured by `SHELL_REPO`.
 - Every secret comes from an untracked environment file; a check proves no key is in the repository and `.gitignore` covers the file.
 - The shell serves its UI and the gateway answers a retrieval request that carries a folder scope, proven by a recorded command and its output.
 - One page describing the start procedure, the two stores and their separate backup and deletion boundaries.
@@ -35,4 +35,4 @@ $ POST /v1/retrieval/query with collection_ids=[folder-alpha]
 
 The full retrieval response contains the scoped segment and citation provenance; the smoke used `collection_ids: ["folder-alpha"]`. The gateway applied all five migrations (`{"applied":5,"total":5}` on the first start, then `{"applied":0,"total":5}`). Open WebUI's Function database contains active global `gateway-retrieval` and `gateway-research` records. The pinned version source and licence URL are recorded in `docs/shell-stack.md`.
 
-Verification: `pnpm test` passed 169 tests with 32 expected skips; the Open WebUI suite passed 8/8 with `python3 -m unittest discover`; Python compilation, Compose config validation, and `git diff --check` passed. `pytest` was not available in the host Python environment. Browser login and a chat completion through the shell UI were not exercised; the health endpoint and direct scoped gateway retrieval were exercised instead.
+Verification: the tracker check passed with `npm test`; the published shell checkout's Python suite remains independently verified by its repository CI. Compose config validation, the shell Function-store readback, gateway health, and direct scoped retrieval were exercised. Browser login and a chat completion through the shell UI were not exercised; the reference-stack answer route is now covered by ticket 05's live proof.
