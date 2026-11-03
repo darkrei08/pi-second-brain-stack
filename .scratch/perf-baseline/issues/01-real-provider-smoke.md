@@ -56,3 +56,12 @@ docker rm -f sb-perf-r10-pg
 ## Comments
 
 A later attempt to pin the provider contract by listing what the proxy exposes found no usable client credential from this session: `/v1/models` on `127.0.0.1:8317` answered `401` for every key-like value available under `/root/.pi/agent`, and the proxy configuration mounted at `/root/git/personale/cliproxy/cliproxy-stack/data/cliproxy/gitstore/config/config.yaml` keeps its client `api-keys` root commented out. What is needed to unblock, in one line: a client key and the exact chat model id the proxy accepts, plus whether it exposes `/v1/embeddings` at all, since the embedding probe answered `404` and a hybrid-retrieval smoke needs it.
+
+## Comments
+
+Two facts pinned by direct probes of the proxy, with the credential read from the harness provider configuration and never printed:
+
+- `claude-sonnet-4-6` answers `429` with `{"error":{"code":"model_cooldown","last_upstream_error": ... "Resource has been exhausted (e.g. check quota)"}}`. The id is valid; that upstream credential is in cooldown or out of quota, which is why the gateway smoke saw `502` on both routes.
+- `deepseek-v4.1-flash` answers `200` and reports usage: `prompt_tokens` 31, `completion_tokens` 4, `total_tokens` 35, with a listed cost. Use that model for the smoke, and note that the provider does report usage while the gateway currently discards it (see the gateway-resilience ticket on token usage).
+
+The base URL in `/root/.pi/agent/cliproxyapi.json` is the bare origin; the OpenAI-compatible routes live under `/v1`, so `ANSWER_BASE_URL` must be `http://127.0.0.1:8317/v1`.
