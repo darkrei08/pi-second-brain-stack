@@ -15,6 +15,7 @@ Settled before this map and not reopened: the primary surface is Open WebUI ([in
 
 ## Decisions so far
 
+- [Move the plugin package into its own repository](issues/02-create-the-shell-repository.md): the shell repository exists at `darkrei08/pi-second-brain-shell`, history kept for the three commits that touched the prefix, 17 plugin tests green in its own CI, package at the repository root, BSD 3-Clause recorded for the pinned tag. The local copy still needs removing, which is ticket 05.
 - The product program, meaning identity, work groups, group scoping and the end-to-end proof, moved to [identity and work groups](../identity-and-work-groups/map.md), which carries the evidence from the gap analysis. The drafts numbered 05 to 11 here duplicated it with less evidence and are dropped. This map keeps the repository split and the contract.
 
 ## Blockers the split must resolve first
