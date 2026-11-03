@@ -22,6 +22,7 @@ Budget is real: at the shipped default of `GATEWAY_MODEL_CONCURRENCY=4`, the mea
 - Names and tags: Open WebUI owns folder/project names and conversation tags/search; gateway collections remain opaque retrieval scopes with no label or tag dimension; `.scratch/projects-and-chats/issues/03-project-name-and-tags.md`.
 - Document reorganisation: the gateway owns membership moves through `POST /v1/documents/collections/move`; Open WebUI owns display renames, and document order remains presentation-only. Existing citations remain valid because collection membership is not part of citation provenance; `.scratch/projects-and-chats/issues/04-reorganise-project-documents.md`.
 - Parallel chats: the gateway default is three model slots with fail-fast `429 model_busy`, chosen to cover one to three concurrent chats without queue latency; `.scratch/projects-and-chats/issues/08-size-the-gateway-for-parallel-chats.md`.
+- Lexical questions use a bounded OR query over `simple` lexemes and rank by term overlap, preserving owner, retention, and collection scope; `.scratch/projects-and-chats/issues/11-lexical-retrieval-must-survive-a-question.md`.
 
 ## Not yet specified
 

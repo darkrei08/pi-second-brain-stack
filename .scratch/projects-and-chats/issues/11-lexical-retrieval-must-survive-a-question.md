@@ -1,7 +1,7 @@
 # 11: Lexical retrieval must survive a real question
 
 Type: bug
-Status: open
+Status: resolved
 Blocked by: none
 
 ## What happens
@@ -26,3 +26,9 @@ The consequence is the failure this gateway exists to prevent: the shell sends a
 - The collection scope still filters: the same question returns the document inside its collection and not from another owner's.
 - A query of only stopword-like tokens returns no match rather than an unbounded scan.
 - The change is a query change, not a schema change: no migration, no reingest.
+
+## Answer
+
+Lexical retrieval now tokenizes each query with the `simple` configuration, keeps at most 32 lexemes, joins them with OR, and ranks matches by `ts_rank_cd` overlap. The same bounded OR query is used by collection suggestions; owner, active-retention, and collection filters are unchanged. No schema or dependency change was made.
+
+Verification was test-first: the new integration case failed before the SQL change and passed after it. A fresh `pgvector/pg17` database passed the full suite with `TEST_DATABASE_URL`: 170 passed, 0 failed, 0 skipped.
