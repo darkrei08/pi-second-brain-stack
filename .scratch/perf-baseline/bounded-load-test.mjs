@@ -11,7 +11,7 @@ const documentId = 'urn:document:perf-load';
 const gatewayToken = 'l'.repeat(32);
 const answerModel = 'fake-chat-model';
 const fakeDelayMs = 25;
-const levels = [1, 2, 4];
+const levels = [1, 2, 3, 4];
 const samplesPerLevel = 12;
 
 if (!databaseUrl) throw new Error('PERF_DATABASE_URL is required');
@@ -147,7 +147,7 @@ try {
       GATEWAY_PORT: String(gatewayPort),
       ANSWER_BASE_URL: `http://127.0.0.1:${fakePort}/v1`,
       ANSWER_MODEL: answerModel,
-      GATEWAY_MODEL_CONCURRENCY: '2',
+      GATEWAY_MODEL_CONCURRENCY: '3',
       GATEWAY_MODEL_REQUESTS_PER_MINUTE: '1000'
     },
     stdio: ['ignore', 'pipe', 'pipe']
@@ -177,7 +177,7 @@ try {
   console.log(JSON.stringify({
     event: 'load_result',
     fake_provider_delay_ms: fakeDelayMs,
-    configured_model_concurrency: 2,
+    configured_model_concurrency: 3,
     configured_model_requests_per_minute: 1000,
     samples_per_level: samplesPerLevel,
     answer_results: answerResults,
