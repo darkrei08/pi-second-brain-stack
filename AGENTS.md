@@ -8,7 +8,7 @@ Use the local Markdown tracker under `.scratch/` and follow `docs/agents/issue-t
 
 ### Issue tracker
 
-Issues and specs are local Markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+Issues and specs are local Markdown files under `.scratch/`, mirrored as GitHub issues. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

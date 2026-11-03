@@ -36,3 +36,7 @@ Decide which products are:
 - Installing or running any candidate against P.IVA data.
 - Measuring latency, recall, memory, licensing compatibility of transitive dependencies, or parser accuracy.
 - Selecting an embedding model, provider, ANN index, or production deployment topology.
+
+## Decisions so far
+
+- Ticket 01 is resolved; the comparison outcome is recorded in `issues/01-compare-prebuilt-rag-platforms.md`.

@@ -26,3 +26,7 @@ The comparison ticket `.scratch/rag-market-comparison/issues/01-compare-prebuilt
 ## Verification
 
 Implementation commit: `bb614ef`. `npm test` passed 13 tests with 6 expected database skips. Fresh `pgvector/pgvector:pg17` integration passed 8/8 tests on loopback port 55433. The pre-existing Compose volume was not reset after a credential mismatch.
+
+## Answer
+
+Implemented exact owner-, retention-, model-, and dimension-scoped semantic storage and search in `src/postgres-store.js` with the `segment_embeddings` schema (commit `bb614ef`, verification closure `64fbae7`). Evidence and counts are recorded under `## Verification`; the invariants in `../spec.md` now state exactly what the database and the adapter enforce.

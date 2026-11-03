@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createStorage, resolveCitations, segmentDocument } from '../../src/index.js';
+import { createStorage, describeRetrievalMode, resolveCitations, runEmbeddingBackfill, segmentDocument } from '../../src/index.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const integrationTest = databaseUrl ? test : test.skip;
@@ -34,6 +34,26 @@ const hybridDocument = {
   retention: { owner_id: 'synthetic-hybrid-owner-a', state: 'active' }
 };
 const hybridResult = segmentDocument(hybridDocument, { max_segment_chars: 100 });
+const backfillDocument = {
+  ...document,
+  document_id: 'urn:document:postgres-backfill',
+  text: 'alpha one.\n\nbeta two.\n\ngamma three.',
+  source_hash: 'sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',
+  source_label: 'synthetic-backfill-fixture.txt',
+  retention: { owner_id: 'synthetic-backfill-owner-a', state: 'active' }
+};
+const backfillResult = segmentDocument(backfillDocument, { max_segment_chars: 100 });
+const backfillSecondDocument = {
+  ...backfillDocument,
+  document_id: 'urn:document:postgres-backfill-b'
+};
+const backfillSecondResult = segmentDocument(backfillSecondDocument, { max_segment_chars: 100 });
+const backfillForeignDocument = {
+  ...backfillDocument,
+  document_id: 'urn:document:postgres-backfill-foreign',
+  retention: { owner_id: 'synthetic-backfill-owner-b', state: 'active' }
+};
+const backfillForeignResult = segmentDocument(backfillForeignDocument, { max_segment_chars: 100 });
 const semanticVectors3d = [
   [1, 0, 0],
   [0, 1, 0],
@@ -55,6 +75,32 @@ test('rejects malformed persistence input before connecting', async () => {
   await assert.rejects(
     storage.saveDocumentAndSegments({ ...document, retention: { owner_id: '../other-owner', state: 'active' } }, result),
     /owner_id/
+  );
+});
+
+test('rejects malformed backfill plan input before connecting', async () => {
+  const storage = createStorage({ pool: { connect() { throw new Error('database must not be contacted'); } } });
+
+  await assert.rejects(storage.listEmbeddingBackfill('/private/model'), /input must be an object/);
+  await assert.rejects(
+    storage.listEmbeddingBackfill({ model_id: '/private/model', owner_id: 'synthetic-owner-a' }),
+    /model_id must be opaque/
+  );
+  await assert.rejects(
+    storage.listEmbeddingBackfill({ model_id: 'backfill-3d', owner_id: '../other-owner' }),
+    /owner_id must be opaque/
+  );
+  await assert.rejects(
+    storage.listEmbeddingBackfill({ model_id: 'backfill-3d', owner_id: 'synthetic-owner-a', limit: 0 }),
+    /limit must be an integer between 1 and 100/
+  );
+  await assert.rejects(
+    storage.listEmbeddingBackfill({ model_id: 'backfill-3d', owner_id: 'synthetic-owner-a', limit: 101 }),
+    /limit must be an integer between 1 and 100/
+  );
+  await assert.rejects(
+    storage.listEmbeddingBackfill({ model_id: 'backfill-3d', owner_id: 'synthetic-owner-a', limit: 1.5 }),
+    /limit must be an integer between 1 and 100/
   );
 });
 
@@ -390,7 +436,9 @@ integrationTest('registers global models and reports owner-scoped partial covera
     /reactivated/
   );
   assert.deepEqual(
-    (await storage.listEmbeddingModels()).map(({ model_id }) => model_id),
+    (await storage.listEmbeddingModels())
+      .map(({ model_id }) => model_id)
+      .filter((model_id) => model_id === coverageModel || model_id === mismatchModel),
     [coverageModel, mismatchModel]
   );
 
@@ -412,6 +460,180 @@ integrationTest('registers global models and reports owner-scoped partial covera
     }
   );
   await removeDocument(semanticDocument.document_id, semanticDocument.retention.owner_id);
+});
+
+integrationTest('plans owner-scoped embedding backfill per registered model', async () => {
+  const storage = createStorage({ pool });
+  const model = 'backfill-3d';
+  const mismatchModel = 'backfill-mismatch';
+  const deprecatedModel = 'backfill-deprecated';
+  const owner = backfillDocument.retention.owner_id;
+  const segmentIds = backfillResult.segments.map(({ id }) => id);
+  const secondSegmentIds = backfillSecondResult.segments.map(({ id }) => id);
+
+  await pool.query('DELETE FROM embedding_models WHERE model_id = ANY($1::text[])', [[model, mismatchModel, deprecatedModel]]);
+  for (const [candidate, candidateOwner] of [
+    [backfillDocument, owner],
+    [backfillSecondDocument, owner],
+    [backfillForeignDocument, backfillForeignDocument.retention.owner_id]
+  ]) {
+    await removeDocument(candidate.document_id, candidateOwner);
+  }
+  await storage.saveDocumentAndSegments(backfillDocument, backfillResult);
+  await storage.saveDocumentAndSegments(backfillSecondDocument, backfillSecondResult);
+  await storage.saveDocumentAndSegments(backfillForeignDocument, backfillForeignResult);
+  await storage.registerEmbeddingModel({ model_id: model, dimensions: 3 });
+
+  const expectedPlan = {
+    model_id: model,
+    owner_id: owner,
+    status: 'active',
+    dimensions: 3,
+    documents: [
+      {
+        document_id: backfillDocument.document_id,
+        segment_ids: segmentIds,
+        missing_segment_ids: segmentIds,
+        dimension_mismatch_segment_ids: []
+      },
+      {
+        document_id: backfillSecondDocument.document_id,
+        segment_ids: secondSegmentIds,
+        missing_segment_ids: secondSegmentIds,
+        dimension_mismatch_segment_ids: []
+      }
+    ]
+  };
+  const coverageBefore = await storage.inspectEmbeddingCoverage({ model_id: model, owner_id: owner });
+  assert.deepEqual(await storage.listEmbeddingBackfill({ model_id: model, owner_id: owner }), expectedPlan);
+  assert.deepEqual(await storage.listEmbeddingBackfill({ model_id: model, owner_id: owner }), expectedPlan);
+  assert.deepEqual(
+    await storage.inspectEmbeddingCoverage({ model_id: model, owner_id: owner }),
+    coverageBefore
+  );
+  assert.deepEqual(
+    (await storage.listEmbeddingBackfill({ model_id: model, owner_id: owner, limit: 1 })).documents.map(({ document_id }) => document_id),
+    [backfillDocument.document_id]
+  );
+  assert.deepEqual(
+    (await storage.listEmbeddingBackfill({ model_id: model, owner_id: backfillForeignDocument.retention.owner_id })).documents.map(({ document_id }) => document_id),
+    [backfillForeignDocument.document_id]
+  );
+  await assert.rejects(
+    storage.listEmbeddingBackfill({ model_id: 'backfill-unregistered', owner_id: owner }),
+    /embedding model is not registered/
+  );
+
+  await storage.saveSegmentEmbeddings({
+    document_id: backfillDocument.document_id,
+    owner_id: owner,
+    model_id: model,
+    dimensions: 3,
+    embeddings: [{ segment_id: segmentIds[0], embedding: semanticVectors3d[0] }],
+    created_at: backfillDocument.created_at
+  });
+  assert.deepEqual(
+    (await storage.listEmbeddingBackfill({ model_id: model, owner_id: owner })).documents[0],
+    {
+      document_id: backfillDocument.document_id,
+      segment_ids: segmentIds,
+      missing_segment_ids: [segmentIds[1], segmentIds[2]],
+      dimension_mismatch_segment_ids: []
+    }
+  );
+
+  await storage.registerEmbeddingModel({ model_id: mismatchModel, dimensions: 4 });
+  await storage.saveSegmentEmbeddings({
+    document_id: backfillDocument.document_id,
+    owner_id: owner,
+    model_id: mismatchModel,
+    dimensions: 3,
+    embeddings: [{ segment_id: segmentIds[1], embedding: semanticVectors3d[1] }],
+    created_at: backfillDocument.created_at
+  });
+  assert.deepEqual(
+    (await storage.listEmbeddingBackfill({ model_id: mismatchModel, owner_id: owner })).documents[0],
+    {
+      document_id: backfillDocument.document_id,
+      segment_ids: segmentIds,
+      missing_segment_ids: [segmentIds[0], segmentIds[2]],
+      dimension_mismatch_segment_ids: [segmentIds[1]]
+    }
+  );
+
+  await assert.rejects(
+    storage.saveSegmentEmbeddings({
+      document_id: backfillDocument.document_id,
+      owner_id: owner,
+      model_id: mismatchModel,
+      dimensions: 4,
+      embeddings: [{ segment_id: segmentIds[0], embedding: semanticVectors4d[0] }],
+      created_at: backfillDocument.created_at
+    }),
+    /inconsistent with existing embeddings/
+  );
+
+  await storage.saveSegmentEmbeddings({
+    document_id: backfillForeignDocument.document_id,
+    owner_id: backfillForeignDocument.retention.owner_id,
+    model_id: mismatchModel,
+    dimensions: 3,
+    embeddings: [{ segment_id: backfillForeignResult.segments[0].id, embedding: semanticVectors3d[0] }],
+    created_at: backfillForeignDocument.created_at
+  });
+  await storage.saveSegmentEmbeddings({
+    document_id: backfillDocument.document_id,
+    owner_id: owner,
+    model_id: mismatchModel,
+    dimensions: 4,
+    embeddings: segmentIds.map((segment_id, index) => ({ segment_id, embedding: semanticVectors4d[index] })),
+    created_at: backfillDocument.created_at
+  });
+  assert.deepEqual(
+    (await storage.listEmbeddingBackfill({ model_id: mismatchModel, owner_id: owner })).documents.map(({ document_id }) => document_id),
+    [backfillSecondDocument.document_id]
+  );
+
+  await storage.registerEmbeddingModel({ model_id: deprecatedModel, dimensions: 2, status: 'deprecated' });
+  const deprecatedPlan = await storage.listEmbeddingBackfill({ model_id: deprecatedModel, owner_id: owner });
+  assert.deepEqual({ ...deprecatedPlan, documents: deprecatedPlan.documents.length }, {
+    model_id: deprecatedModel,
+    owner_id: owner,
+    status: 'deprecated',
+    dimensions: 2,
+    documents: 2
+  });
+
+  await storage.saveSegmentEmbeddings({
+    document_id: backfillDocument.document_id,
+    owner_id: owner,
+    model_id: model,
+    dimensions: 3,
+    embeddings: segmentIds.map((segment_id, index) => ({ segment_id, embedding: semanticVectors3d[index] })),
+    created_at: backfillDocument.created_at
+  });
+  assert.deepEqual(
+    (await storage.listEmbeddingBackfill({ model_id: model, owner_id: owner })).documents.map(({ document_id }) => document_id),
+    [backfillSecondDocument.document_id]
+  );
+
+  await pool.query(
+    "UPDATE documents SET retention_state = 'tombstone' WHERE document_id = $1 AND owner_id = $2",
+    [backfillSecondDocument.document_id, owner]
+  );
+  assert.deepEqual(
+    (await storage.listEmbeddingBackfill({ model_id: model, owner_id: owner })).documents,
+    []
+  );
+
+  for (const [candidate, candidateOwner] of [
+    [backfillDocument, owner],
+    [backfillSecondDocument, owner],
+    [backfillForeignDocument, backfillForeignDocument.retention.owner_id]
+  ]) {
+    await removeDocument(candidate.document_id, candidateOwner);
+  }
+  await pool.query('DELETE FROM embedding_models WHERE model_id = ANY($1::text[])', [[model, mismatchModel, deprecatedModel]]);
 });
 
 integrationTest('isolates semantic results by owner, active retention, model, and cascades twice', async () => {
@@ -533,6 +755,12 @@ integrationTest('fuses lexical and semantic matches with deterministic isolation
   const matches = await storage.searchSegmentsHybrid(request);
   assert.deepEqual(matches.map((match) => match.segment_index), [0, 1, 2]);
   assert.deepEqual(matches.map((match) => [match.lexical_rank, match.semantic_rank]), [[1, 1], [2, null], [null, 2]]);
+  assert.deepEqual(describeRetrievalMode(matches, { model_id: 'hybrid-3d' }), {
+    mode: 'hybrid',
+    model_id: 'hybrid-3d',
+    matches: 3,
+    semantic_matches: 2
+  });
   assert.ok(Math.abs(matches[0].hybrid_score - 2 / 61) < 0.000001);
   assert.ok(Math.abs(matches[1].hybrid_score - 1 / 62) < 0.000001);
   assert.equal(matches[0].provenance.citation.ref, hybridResult.segments[0].provenance.citation.ref);
@@ -543,10 +771,14 @@ integrationTest('fuses lexical and semantic matches with deterministic isolation
   );
   assert.equal((await storage.searchSegmentsHybrid({ ...request, owner_id: tombstoneDocument.retention.owner_id })).length, 0);
   assert.equal((await storage.searchSegmentsHybrid({ ...request, owner_id: purgedDocument.retention.owner_id })).length, 0);
-  assert.deepEqual(
-    (await storage.searchSegmentsHybrid({ ...request, query_embedding: [1, 0, 0, 0], model_id: 'hybrid-4d' })).map((match) => match.semantic_rank),
-    [null, null]
-  );
+  const wrongDimensionMatches = await storage.searchSegmentsHybrid({ ...request, query_embedding: [1, 0, 0, 0], model_id: 'hybrid-4d' });
+  assert.deepEqual(wrongDimensionMatches.map((match) => match.semantic_rank), [null, null]);
+  assert.deepEqual(describeRetrievalMode(wrongDimensionMatches, { model_id: 'hybrid-4d' }), {
+    mode: 'lexical',
+    model_id: 'hybrid-4d',
+    matches: 2,
+    semantic_matches: 0
+  });
 
   await Promise.all(documents.map((entry) => removeDocument(entry.document_id, entry.retention.owner_id)));
 });
@@ -620,6 +852,122 @@ integrationTest('revalidates citation freshness across ownership, retention, del
     await storage.revalidateCitations(citations, { owner_id: hybridDocument.retention.owner_id }),
     { valid: false, stale_ids: citations.map((citation) => citation.segment_id) }
   );
+});
+
+integrationTest('executes a backfill plan to complete and repair coverage with an injected embedder', async () => {
+  const storage = createStorage({ pool });
+  const model = 'backfill-worker-3d';
+  const owner = 'synthetic-worker-owner-a';
+  const workerDocument = {
+    ...document,
+    document_id: 'urn:document:postgres-backfill-worker',
+    text: 'alpha one.\n\nbeta two.\n\ngamma three.',
+    source_hash: 'sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+    source_label: 'synthetic-backfill-worker-fixture.txt',
+    retention: { owner_id: owner, state: 'active' }
+  };
+  const workerResult = segmentDocument(workerDocument, { max_segment_chars: 100 });
+  const segmentIds = workerResult.segments.map(({ id }) => id);
+  const expectedInputs = workerResult.segments.map(({ text }) => text);
+  const embedCalls = [];
+  const embed = async ({ model_id, dimensions, inputs }) => {
+    embedCalls.push({ model_id, dimensions, inputs });
+    return inputs.map((_, index) => semanticVectors3d[index % semanticVectors3d.length]);
+  };
+
+  await pool.query('DELETE FROM embedding_models WHERE model_id = $1', [model]);
+  await removeDocument(workerDocument.document_id, owner);
+  await storage.saveDocumentAndSegments(workerDocument, workerResult);
+  await storage.registerEmbeddingModel({ model_id: model, dimensions: 3 });
+
+  assert.deepEqual(
+    await runEmbeddingBackfill({ storage, embed, model_id: model, owner_id: owner }),
+    {
+      model_id: model,
+      owner_id: owner,
+      dimensions: 3,
+      processed_documents: 1,
+      embedded_segments: 3,
+      skipped_documents: []
+    }
+  );
+  assert.deepEqual(embedCalls, [{ model_id: model, dimensions: 3, inputs: expectedInputs }]);
+  assert.deepEqual(
+    await storage.inspectEmbeddingCoverage({ model_id: model, owner_id: owner }),
+    {
+      model_id: model,
+      owner_id: owner,
+      status: 'active',
+      dimensions: 3,
+      total_segments: 3,
+      embedded_segments: 3,
+      missing_segments: 0,
+      dimension_mismatch_segments: 0
+    }
+  );
+  assert.deepEqual(
+    await runEmbeddingBackfill({ storage, embed, model_id: model, owner_id: owner }),
+    {
+      model_id: model,
+      owner_id: owner,
+      dimensions: 3,
+      processed_documents: 0,
+      embedded_segments: 0,
+      skipped_documents: []
+    }
+  );
+  assert.equal(embedCalls.length, 1);
+  const workerMatches = await storage.searchSegmentsSemantic({
+    query_embedding: [0, 1, 0],
+    model_id: model,
+    owner_id: owner,
+    limit: 3
+  });
+  assert.equal(workerMatches[0].id, workerResult.segments[1].id);
+  assert.equal(workerMatches[0].segment_index, 1);
+  const workerFirstMatches = await storage.searchSegmentsSemantic({
+    query_embedding: [1, 0, 0],
+    model_id: model,
+    owner_id: owner,
+    limit: 3
+  });
+  assert.equal(workerFirstMatches[0].id, workerResult.segments[0].id);
+
+  await pool.query(
+    'UPDATE segment_embeddings SET dimensions = 2 WHERE segment_id = $1 AND model_id = $2',
+    [segmentIds[1], model]
+  );
+  assert.deepEqual(
+    (await storage.listEmbeddingBackfill({ model_id: model, owner_id: owner })).documents[0].dimension_mismatch_segment_ids,
+    [segmentIds[1]]
+  );
+  assert.deepEqual(
+    await runEmbeddingBackfill({ storage, embed, model_id: model, owner_id: owner }),
+    {
+      model_id: model,
+      owner_id: owner,
+      dimensions: 3,
+      processed_documents: 1,
+      embedded_segments: 3,
+      skipped_documents: []
+    }
+  );
+  assert.deepEqual(
+    await storage.inspectEmbeddingCoverage({ model_id: model, owner_id: owner }),
+    {
+      model_id: model,
+      owner_id: owner,
+      status: 'active',
+      dimensions: 3,
+      total_segments: 3,
+      embedded_segments: 3,
+      missing_segments: 0,
+      dimension_mismatch_segments: 0
+    }
+  );
+
+  await removeDocument(workerDocument.document_id, owner);
+  await pool.query('DELETE FROM embedding_models WHERE model_id = $1', [model]);
 });
 
 integrationTest('replaces atomically and cascades document deletion', async () => {

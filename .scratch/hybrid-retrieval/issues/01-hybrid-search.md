@@ -1,7 +1,7 @@
 # 01: Add provider-neutral hybrid retrieval
 
 Type: implementation
-Status: closed
+Status: resolved
 Blocked by: None
 
 ## Question
@@ -26,3 +26,7 @@ Verification: commits `8b466dd` and `c906b16`; pure suite 13 pass with 7 expecte
 ## Non-goals
 
 Model lifecycle management, learned reranking, graph traversal, parser benchmarking, external sidecars, gateway routes, and UI changes.
+
+## Answer
+
+Implemented `storage.searchSegmentsHybrid` in `src/postgres-store.js` with bounded one-based Reciprocal Rank Fusion, deterministic tie-breaks, and owner, active-retention, model, and dimension isolation (commit `8b466dd`, closure `c906b16`). Evidence: the hybrid integration case in `test/integration/postgres-store.test.js` and the matching row in `odd/traceability.md`.

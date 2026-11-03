@@ -20,3 +20,6 @@ postgres-data/
 # Local tooling
 .worktrees/
 .pi/
+
+# Installed dependencies are environment, not repository content
+node_modules

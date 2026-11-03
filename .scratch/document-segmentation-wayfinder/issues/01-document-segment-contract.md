@@ -17,7 +17,7 @@ Invariants:
 - `segment_index` is zero-based, contiguous, and ordered.
 - `[start_offset, end_offset)` is a canonical Unicode code-point span and must reproduce `text` exactly from the source text.
 - `text_sha256` is the lowercase SHA-256 digest of the exact segment text.
-- `id` is deterministic from document identity, segment index, offsets, and text hash; it never uses a random UUID or raw path.
+- `id` is deterministic from document identity and segment index; it never uses a random UUID or raw path.
 - Segments are non-empty and boundaries prefer paragraphs, then Unicode sentence boundaries, then safe whitespace/punctuation fallback.
 - The contract does not depend on an embedding tokenizer.
 

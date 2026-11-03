@@ -1,10 +1,11 @@
 # Local development
 
-This repository contains public reference documentation and a safe PostgreSQL/pgvector skeleton. It does not mount the P.IVA corpus and it does not include an application gateway yet.
+This repository contains public reference documentation, a safe PostgreSQL/pgvector skeleton, and a Node 22 package under `src/` that exposes deterministic segmentation, parser normalization, the PostgreSQL storage seams, the citation resolver, and the embedding backfill loop through `src/index.js` and the `segment-document` CLI. It does not mount the P.IVA corpus and it does not include an application gateway yet.
 
 ## Requirements
 
 - Git
+- Node.js 22 or newer (the package declares `"node": ">=22"`)
 - Docker Engine or Docker Desktop
 - Docker Compose v2
 
@@ -21,7 +22,16 @@ docker compose up -d postgres
 docker compose ps
 ```
 
-The port is bound to `127.0.0.1:55432`. The init script enables `vector` and `pg_trgm`. No P.IVA path is mounted by this reference file.
+The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/init/` enable `vector` and `pg_trgm` and create `documents`, `segments`, `segment_embeddings`, and `embedding_models` with their indexes. They run only when the data volume is empty, so a volume created by an older checkout must be recreated before the current seams work. No P.IVA path is mounted by this reference file.
+
+## Verify the package
+
+`npm test` runs the unit suites. The integration file self-skips unless `TEST_DATABASE_URL` points at a reachable PostgreSQL instance with the init scripts applied, which is what the `test:integration` script runs. Both scripts are defined in `package.json`.
+
+```bash
+npm test
+TEST_DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag' npm run test:integration
+```
 
 ## Stop and remove local state
 

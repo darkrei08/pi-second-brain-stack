@@ -37,13 +37,13 @@ Use a single product API gateway as the only application boundary. Every client 
 
 | Surface | Initial position | Role |
 |---|---|---|
-| Web | Primary human UI: LibreChat configured against the gateway | Full chat, citations, ingestion and administration |
+| Web | Primary human UI: Open WebUI configured against the gateway | Full chat, citations, ingestion and administration |
 | Terminal | First-class operator/developer client through the Pi extension and HTTP/CLI calls | Automation, scripts, diagnostics and power-user workflows |
 | Desktop | Optional OpenChat client against the same gateway | Native desktop convenience, not a second backend |
 | Mobile/iPad | Responsive web UI or installable PWA first | Reuse the web contract without maintaining native apps |
 | Native mobile | Deferred | Add only if offline use, push, camera capture, or platform integration is demonstrated as a requirement |
 
-This is a portability decision, not a claim that every client has equal feature parity. LibreChat is the recommended primary interface because its project documents a ChatGPT-like UI, multiple provider support, custom OpenAI-compatible endpoints, agents, MCP, skills, and RAG features ([LibreChat](https://github.com/LibreChat-AI/LibreChat)). OpenChat is an optional desktop client ([OpenChat](https://github.com/alztrk/openchat)). AnythingLLM remains an alternative document-first UI, not a co-primary application ([AnythingLLM](https://github.com/Mintplex-Labs/anything-llm)).
+This is a portability decision, not a claim that every client has equal feature parity. Open WebUI is the primary interface because it is the only evaluated shell that forwards a folder scope and verified caller identity into an external retrieval hook without patching the shell. Its branding clause is inert for a single-owner deployment under fifty end users.
 
 The gateway should expose both compatibility and product-native contracts:
 
@@ -62,6 +62,16 @@ DELETE /v1/data/{id}
 GET  /healthz
 GET  /readyz
 ```
+
+The surface decision adds five contracts. `POST /v1/chat/completions` stays the OpenAI-compatible entry the shell calls; the rest serve the shell's retrieval glue and the operator clients:
+
+- `POST /v1/documents/ingest` - accept a shell attachment and persist it with provenance. The owner comes from the authenticated identity and never from the body.
+- `POST /v1/retrieval/query` - hybrid retrieval with an optional collection scope and an explicit owner. The owner comes from the authenticated identity and never from the body.
+- `GET /v1/citations/resolve` - resolve cited spans and revalidate freshness. The owner comes from the authenticated identity and never from the body.
+- `GET /v1/models` - registered embedding models and owner-scoped coverage. The owner comes from the authenticated identity and never from the body.
+- `POST /v1/research` - multi-step research loop over the same retrieval seams. The owner comes from the authenticated identity and never from the body.
+
+The Open WebUI filter is the only client glue in scope.
 
 ### 2. Initial database and retrieval choice
 
