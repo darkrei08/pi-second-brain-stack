@@ -38,4 +38,5 @@ The repo-split map carried tickets 05 to 11 for identity, groups, scoping, group
 5. Documents scoped to a group and to a project inside it.
 6. Chats started inside a group.
 7. A document attached inside a chat: refuse it or ingest it.
+8. The filter signs the claim, and the gateway refuses a secret equal to a token.
 8. The end-to-end isolation proof, including every path the operator named.

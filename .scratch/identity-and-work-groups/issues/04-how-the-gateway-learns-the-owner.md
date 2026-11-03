@@ -29,3 +29,13 @@ Why this and not the alternatives:
 - **A bare `x-shell-user-id` header** is forgeable by anyone holding the shared bearer token, which is exactly what the filter holds.
 
 Known limits, written down rather than hidden: the secret lives in the shell container's environment, a stolen claim is usable until it expires, and a clock skew above two minutes refuses honest requests. The two-minute window is the deliberate trade between replay exposure and clock tolerance.
+
+## Implementation status: backend half done
+
+Branch `feat/signed-shell-claim` in `pi-second-brain-backend`, commit `e6487ff`, not merged.
+
+The gateway verifies `x-shell-claim-signature` as `HMAC-SHA256(secret, "<user_id>\n<group_id>\n<expiry>")`, comparing with `timingSafeEqual` after a length check, refusing a malformed claim, a claim with no secret configured, an expired claim and one more than 120 seconds in the future. Each refusal returns `403 invalid_claim` with the cause and the next action. A valid claim derives `urn:group:<group_id>` or `urn:user:<user_id>`; no claim leaves the previous behaviour intact. `owner_id` in a body is still refused, and the bearer token is still verified before the claim is read.
+
+Verified by me on the branch with a disposable `pgvector/pgvector:pg17`: `177 tests, 177 pass, 0 skipped, 0 fail`, container removed afterwards.
+
+Two things this unit did not do, both recorded rather than assumed: the filter does not yet sign or send a claim (ticket 09), and nothing refuses a configuration where the claim secret equals a bearer token, which would let a token holder forge one. That second one is cheap and belongs with the filter's ticket.
