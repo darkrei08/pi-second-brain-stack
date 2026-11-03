@@ -15,7 +15,7 @@ Settled before this map and not reopened: the primary surface is Open WebUI ([in
 
 ## Decisions so far
 
-Empty. The first two tickets are the frontier.
+- The product program, meaning identity, work groups, group scoping and the end-to-end proof, moved to [identity and work groups](../identity-and-work-groups/map.md), which carries the evidence from the gap analysis. The drafts numbered 05 to 11 here duplicated it with less evidence and are dropped. This map keeps the repository split and the contract.
 
 ## Blockers the split must resolve first
 
