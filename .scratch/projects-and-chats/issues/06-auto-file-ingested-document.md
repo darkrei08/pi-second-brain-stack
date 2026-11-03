@@ -1,7 +1,7 @@
 # 06: File an ingested document into a project automatically
 
 Type: task
-Status: open
+Status: resolved
 Blocked by: 01
 
 ## Question
@@ -10,7 +10,7 @@ The operator wants an ingested document to be filed into the right project witho
 
 ## Acceptance criteria
 
-- A proposal contract: the route or response field, the candidate collections, the evidence, and the explicit confirmation step.
-- A test that an unconfirmed proposal leaves membership unchanged.
-- A test that a confirmed proposal writes one membership and no duplicate.
-- The ingest response stays within its documented shape, or the doc in `docs/development.md` is extended with it.
+- `POST /v1/documents/collections/suggest` returns candidate collections with score and deciding segment evidence; `POST /v1/documents/collections/confirm` is the explicit confirmation step.
+- Integration test proves an unconfirmed proposal leaves membership unchanged.
+- Integration test confirms twice and proves exactly one membership remains.
+- The ingest response shape is unchanged; the separate proposal and confirmation contract is documented in `docs/projects-and-chats.md`.
