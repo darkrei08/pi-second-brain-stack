@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+!.env.shell-stack.example
+/shell-stack.env
 
 # Runtime data: the P.IVA corpus never belongs in this repository
 data/

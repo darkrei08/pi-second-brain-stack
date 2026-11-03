@@ -1,66 +1,95 @@
-# Handoff for a fresh session
+# Recovery checkpoint
 
-Written 2026-10-29 by the session that built the gateway and grounded answers. Read this file, then `odd/traceability.md`. Git, tests, and the tracker are authoritative; this file only points at them.
+Restated 2026-10-31 at `feat/session-2`. Git, the tracker, and the tests are authoritative; this file is a pointer, not evidence.
 
-## Repository and branch stack
+## Where the work stands
 
-Repository: `/root/git/personale/pi.dev/second-brain-stack` (public reference docs plus a Node 22 ESM package, only dependency `pg`).
+Repository: `/root/git/personale/pi.dev/second-brain-stack`. Active worktree: `.worktrees/session-2` on `feat/session-2`. Nothing is pushed and there is no pull request; 20 local commits sit above `origin/feat/embedding-backfill`.
 
-Branches are stacked, one Wayfinder each, and **nothing is pushed** beyond `origin/feat/embedding-backfill`:
+Sealed and verified before this checkpoint: segmentation with provenance, parser normalization, PostgreSQL persistence with owner scoping, lexical/semantic/hybrid retrieval with collection scope, citation resolution and revalidation, model registry and coverage, embedding backfill, the OpenAI-compatible embedder, retrieval-mode description, the loopback HTTP gateway with per-principal identity, grounded answers with reported uncertainty, buffered and streaming chat completions, bounded research, and the Open WebUI filter and pipe.
 
-```text
-main
-└─ feat/embedding-backfill            (pushed; interface-stack decision)
-   └─ feat/collections-retrieval-scope (local)
-      └─ feat/http-gateway             (local)
-         └─ feat/live-answers          (local, current)
-```
+Mitigations delivered from the delivered-stack risk register, each its own commit:
 
-Seventeen local commits are unpushed. Do not push, open a PR, or merge without explicit authorization.
+| Risk | State | Evidence |
+|---|---|---|
+| R1 shared bearer token | done | `f5602b5`; native review `review-c88c8279c7a63750` acknowledged; runtime-proven with two principals |
+| R2 provider egress | done | `a98fcd5`; declared-host allowlist, refusals proven at runtime |
+| R5 export and purge | done | `0fde30c`; tombstone is documented as non-erasure, purge physically deletes and cascades, export is owner-scoped |
+| R6 model-route limits | done | `5e3d631`; bounded concurrency plus a per-owner budget, 429 `model_busy` before any provider call |
+| R7 CI gate | done | `7aee02c`; two jobs through `pnpm run verify` and the migration script. The runner is unproven until a push |
+| R8 migrations and restore | done | `76fdadb`; `pnpm migrate`, rehearsal recorded in the ticket |
+| R9 traceability drift | done | `649cd9d`; two assertions in the normal suite |
+| R3, R4, R10 | open by nature | need a controlled real provider, a semantic-support evaluation and a load target |
 
-## What is sealed and verified
-
-Segmentation with provenance, parser normalization, PostgreSQL persistence with owner scoping, lexical/semantic/hybrid retrieval with an optional collection scope, citation resolution and revalidation, model registry and coverage, embedding backfill, an OpenAI-compatible embedder, retrieval-mode description, the loopback HTTP gateway with boundary identity (six routes), and grounded answers with reported uncertainty.
-
-Trackers, newest first: `.scratch/live-answers/`, `.scratch/http-gateway/`, `.scratch/interface-stack/`, plus the earlier `.scratch/*` efforts. Every one has a `map.md` with decisions and `issues/` with resolved tickets.
+The register lives in `.scratch/risk-register/` with its map, ranking and per-risk evidence. `odd/traceability.md` carries one row per delivered requirement and its owning commit.
 
 ## Next actionable work, in order
 
-1. `POST /v1/chat/completions` with streaming, mapping the OpenAI request shape onto `answerQuestion`. Criterion before starting: decide how streaming interacts with the citation and uncertainty report, because an answer streamed token by token cannot report its citations at the end unless the client tolerates a trailing event. Decision A6 of `.scratch/live-answers/map.md` left it deferred for exactly this reason.
-2. The Open WebUI glue from decision V6 of `.scratch/interface-stack/map.md`: one `inlet` filter that forwards `folder_id` as `collection_ids` and one Pipe that exposes research mode. Nothing is installed or configured yet, so this needs an installed shell to be verified honestly.
-3. TLS termination, metrics, deployment packaging, and the audit-log/quota policy deferred in A7.
-4. Still deferred with reasons: graph retrieval (needs entity and relationship provenance), ANN indexes (needs measured workload), parser benchmark, `/v1/search`, `/v1/memory/*`.
+1. Delivery: push `feat/session-2` and open the stacked pull request against `feat/live-answers`. No code is waiting on anything else.
+2. R10: an opt-in smoke test against a controlled real provider and a bounded load test with a stated concurrency target; R3 and R4 follow the same provider work.
+3. Deployment decisions that are not code: scheduled backups and dump retention, log rotation for the audit line, TLS termination, metrics, packaging, and deleting the three orphaned workflow worktrees.
+4. Deferred with reasons: graph retrieval (needs entity and relationship provenance), ANN indexes (needs measured workload), parser benchmark, `/v1/search`, `/v1/memory/*`, TLS, metrics, deployment packaging.
 
 ## Commands
 
 ```bash
-npm test                      # unit suite; integration cases self-skip
-NODE_OPTIONS=--max-old-space-size=1024 node src/gateway-cli.js   # needs env below
+pnpm install --frozen-lockfile
+pnpm test                       # unit suite; integration cases self-skip
+pnpm migrate                    # needs DATABASE_URL
+NODE_OPTIONS=--max-old-space-size=1024 node src/gateway-cli.js
 ```
 
-Integration needs a disposable pgvector instance; do not reuse the developer volume:
+Integration and rehearsal use a disposable instance, never the developer volume:
 
 ```bash
 docker run -d --rm --name sbs-test-pg -e POSTGRES_HOST_AUTH_METHOD=trust \
   -e POSTGRES_USER=test -e POSTGRES_DB=test -p 127.0.0.1:55433:5432 pgvector/pgvector:pg17
 for f in docker/postgres/init/*.sql; do docker exec -i sbs-test-pg psql -U test -d test -v ON_ERROR_STOP=1 -q < "$f"; done
-TEST_DATABASE_URL='postgres://test@127.0.0.1:55433/test' npm run test:integration
+TEST_DATABASE_URL='postgres://test@127.0.0.1:55433/test' pnpm run test:integration
 docker rm -f sbs-test-pg
 ```
 
-Gateway environment: `DATABASE_URL`, `GATEWAY_TOKEN` (32+ chars), `GATEWAY_OWNER_ID`, optional `GATEWAY_HOST`, `GATEWAY_PORT`, `GATEWAY_SHELL_USERS`, `EMBEDDING_BASE_URL`, `EMBEDDING_API_KEY`, `ANSWER_BASE_URL`, `ANSWER_API_KEY`, `ANSWER_MODEL`.
+Gateway environment: `DATABASE_URL` plus either `GATEWAY_PRINCIPALS` (JSON array of `{token, owner_id}`) or the legacy `GATEWAY_TOKEN` with `GATEWAY_OWNER_ID`. Optional: `GATEWAY_HOST`, `GATEWAY_PORT`, `EMBEDDING_BASE_URL`, `EMBEDDING_API_KEY`, `EMBEDDING_ALLOWED_HOSTS`, `ANSWER_BASE_URL`, `ANSWER_API_KEY`, `ANSWER_ALLOWED_HOSTS`, `ANSWER_MODEL`. A remote provider host must be declared or startup is refused.
 
-## Working rules that this repository enforced
+## Recovery checkpoint, 2026-10-31 (third round)
 
-- ODD: feature document in `odd/tasks/<feature>.md` with verbatim `S#` specs and a `## Log`, a tracker ticket under `.scratch/<effort>/issues/`, test-first with observed RED, work-unit commits, tracker closed with an `## Answer` and a traceability row.
-- Native review under RDD is on. `gentle_review` assess, inspect, start with lenses, capture the reviewer group once (forecast first, then `reviewerRunAcknowledged: true`), then `acknowledge-approved`. Do not run raw STATUS.
-- Model selection: cliproxyapi aliases only, per role, with the failover matrix in `~/.pi/agent/ha.json` and the role map in `~/.pi/agent/pi-ha-role-groups.json`. Opus and Sonnet are listed first for reviewer roles but have failed with account quota errors; start on `gpt-6-luna`, `gpt-5.6-luna`, or `gemini-3.8-flash-high` and keep the Anthropic entries as later failover.
-- Tooling quirks worth knowing before wasting a run: the bash tool refuses pipes into `head`/`tail`, backgrounded commands, and `sleep` sequences, so prove a server end to end inside one node script; `parallel(...)` returns a keyed object, not an array; concurrent `agent()` calls must come from distinct call sites; an Engram `mem_save` with a stable `topic_key` upserts.
+State after a context reset, reconciled against Git and the tracker rather than a summary.
+
+- Branch `feat/session-2`, clean tree, 87 commits ahead of `main`, all local. `origin/main` is at `600a476`. The eleven pushed `feat/<effort>` branches are all merged into this branch, so the newest remote tip is `origin/feat/live-answers` and this branch adds 23 commits on top of it.
+- Tracker: 18 effort directories under `.scratch/`, all 29 tickets resolved. No open Wayfinder ticket anywhere, so the frontier is empty and the next work has to come from this document or from the operator.
+- Register: R1, R2, R5, R6, R7, R8 and R9 mitigated and verified. R2's residual, the provider-call audit record, closed by ticket 08 in `33bba6d`.
+- Native reviews acknowledged: `review-c88c8279c7a63750`, `review-21dfcdd041638060`, `review-1aa4678c6075fe4d`, `review-199214a5c812cfb9`.
+- Leftovers to decide on, not deleted: three orphaned `pi-extensible-workflows/*` branches with their worktrees under `/root/.pi/workflows/.../worktrees/`, from runs whose agents failed. Nothing uncommitted lives there.
+- Delivery plan: the repository policy is one stacked pull request per Wayfinder with the first targeting `main`. These 23 commits sit on the already-pushed `feat/live-answers` branch, so a single PR against it is the coherent slice; pushing and opening it is the operator's call.
+- Environment quirks confirmed again: `git log --not <refs>` without a positive revision returns nothing useful, so use `git rev-list --count <ref>..HEAD`. A commented colon-heavy `lensesReason` is refused as `lenses-invalid`. `START` needs a full 40-character `baseRef`, not `HEAD~1`.
+
+## Delivery and next frontier, 2026-11-02
+
+- Twelve stacked pull requests are open, `main` to `feat/session-2`: `#21`..`#34`. The four newest are `feat/collections-retrieval-scope` (`#31`), `feat/http-gateway` (`#32`), `feat/live-answers` (`#33`) and `feat/session-2` (`#34`). Nothing is merged; the chain merges in order and `main` is never written directly.
+- `.scratch/projects-and-chats/map.md` is the active Wayfinder: eight open tickets. The first is `01-folder-to-collection-scope.md`, and five of the eight are blocked by it, because the shell forwards a folder id as a collection reference while no gateway route can create a collection.
+- `.scratch/perf-baseline/report.md` holds the R10 numbers: `/v1/answers` p50 33.55 ms and p95 84.49 ms at concurrency 1, and a 50 percent `429 model_busy` rate at concurrency 4 with the shipped default `GATEWAY_MODEL_CONCURRENCY=4`. The real-provider smoke is blocked on a client key and a valid model id for the local proxy, and its embedding route answered `404`.
+- `docs/agents/tooling-evaluation.md` records the verdict on the fourteen proposed external projects: nine skips, five defers, no installs. `herdr-app`, `collie`, `hallmark`, `android/skills` and `Spark` each carry the trigger that would revive them.
+
+## State after the R10 close, 2026-11-02
+
+- R10 is measured, not assumed: `deepseek-v4.1-flash` through the local proxy answered `/v1/answers` in 1128.23 ms with 260 input and 39 output tokens, and `/v1/chat/completions` in 1107.80 ms with 260 and 48. `claude-sonnet-4-6` sits in upstream quota cooldown (`429 model_cooldown`) and must not be used for smoke work. The proxy origin needs the `/v1` suffix, and it does not serve `/v1/embeddings` (`404`), so hybrid retrieval needs a separate embedding provider on this host.
+- Readiness had a false negative: the first implementation spent one completion token, that call failed, and a working provider was reported `not_ready` while both answer routes answered `200`. The corrected probe reads provider metadata under the same allowlist, caches for 30 seconds, never writes a `model_call` audit event, and was verified at runtime: `200` in 52 ms then `200` in 4 ms from cache, zero audit events, no key in the output.
+- The provider reports token usage on every call and this gateway discards it. That is measured, and it is the token-usage ticket, not a hypothesis.
+- Two branches are in flight from `ff3d8ee`, each in its own worktree: `feat/res-03-04` (shutdown and token usage) and `feat/proj-05-06` (collection suggestion and automatic filing). They merge back into `feat/session-2` before anything else is dispatched, because parallel writers on one tree corrupt each other and `worktree:` in a workflow dispatch still does not isolate anything.
+- A symlinked `node_modules` is what makes a fresh worktree testable without a second install: `ln -s .worktrees/session-2/node_modules <worktree>/node_modules`.
+
+## Working rules this repository enforces
+
+- ODD: feature document in `odd/tasks/`, verbatim `S#` specs, a `## Log`, a tracker ticket under `.scratch/<effort>/issues/`, test-first with observed RED, one work-unit commit per slice.
+- Native review is on. `assess` then `inspect` then `start` with the pertinent lenses, capture the group once (forecast, then `reviewerRunAcknowledged: true`), then `acknowledge-approved`. Use the facade, never raw STATUS.
+- `worktree:` in a `parallel` dispatch did not create an isolated worktree on 2026-10-31; verify with `git worktree list` before claiming isolation, and reserve disjoint surfaces.
+- Tool quirks: the bash tool refuses pipes into `head`/`tail`, backgrounded commands and `sleep` loops, so use the `log=$(mktemp)` pattern and prove servers inside one node script. `parallel(...)` returns a keyed object.
+- Model aliases only from `cliproxyapi`, per role, with the failover matrix in `~/.pi/agent/ha.json`.
 
 ## Memory
 
-Engram project `second-brain-stack`. The useful topic keys are `second-brain-stack/wayfinder/collections-scope`, `second-brain-stack/wayfinder/http-gateway`, `second-brain-stack/wayfinder/live-answers`, `second-brain-stack/recovery-checkpoint`, and `second-brain-stack/odd/<feature>/tasks`. Start from `mem_context` and `mem_search`, not from a conversation summary.
+Engram project `second-brain-stack`. Useful topic keys: `second-brain-stack/recovery-checkpoint`, `second-brain-stack/wayfinder/*`, `second-brain-stack/odd/<feature>/tasks`. Start from `mem_context`, not from a conversation summary.
 
-## Known gaps to state honestly
+## Known gaps stated honestly
 
-No shell is installed, so folder-to-collection mapping, the filter, and the Pipe are unproven at runtime. The chat adapter was proven with fake providers, never against a real endpoint. Nothing is pushed, so the whole stack lives in local branches only.
+The Open WebUI plugins are written and unit-tested but never loaded in a shell. No model call has reached a real provider; every one used a fake. No load test exists. The CI workflow has never executed, because executing it needs a push. The purge cannot reach originals, caches, logs or backups outside PostgreSQL, which stays an operator procedure. Nothing is pushed, so the whole stack lives in local branches only, and the branch is far past a single reviewable delivery slice.

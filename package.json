@@ -1,28 +1,9 @@
 {
-  "name": "second-brain-stack-segmentation",
+  "name": "second-brain-stack",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": {
-    "node": ">=22"
-  },
-  "files": [
-    "src/",
-    "README.md"
-  ],
-  "exports": {
-    ".": "./src/index.js"
-  },
-  "bin": {
-    "segment-document": "./src/cli.js",
-    "second-brain-gateway": "./src/gateway-cli.js"
-  },
   "scripts": {
-    "test": "node --test",
-    "test:integration": "node --test test/integration/postgres-store.test.js test/integration/gateway.test.js",
-    "start": "node src/gateway-cli.js"
-  },
-  "dependencies": {
-    "pg": "^8.23.1"
+    "test": "node check-traceability.mjs"
   }
 }

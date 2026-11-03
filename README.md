@@ -51,13 +51,15 @@ The gateway is the product API. LibreChat, OpenChat, and the Pi extension must n
 
 ## Interface decision
 
-### Primary web UI: LibreChat
+### Primary web UI: Open WebUI
 
-LibreChat is the recommended main interface because its official project provides a ChatGPT-like UI, multi-provider support, custom OpenAI-compatible endpoints, agents, MCP, skills, subagents, file search, RAG features, and agent management APIs. The main repository is MIT licensed.
+The settled decision is Open WebUI, recorded with its evidence in [the interface stack map](.scratch/interface-stack/map.md) (V1): it is the only evaluated shell that forwards a folder scope (`body.folder_id`, `body.files`) and a verified caller identity into an external retrieval hook without patching the shell, so this gateway stays the single corpus. Its licence is BSD-3 up to v0.6.5 and carries a branding restriction above fifty users after that, which is inert for a single-owner deployment; the pinned version and its licence position are recorded in [docs/shell-stack.md](docs/shell-stack.md).
 
-Use LibreChat as a client of the product gateway. Disable or limit its duplicate RAG path when the gateway is responsible for canonical ingestion, provenance, retention, tenant isolation, and audit.
+The running reference stack is [compose.yaml](compose.yaml). It mounts the published packages from operator checkouts at `../second-brain-backend` and `../second-brain-shell`, configured by `BACKEND_REPO` and `SHELL_REPO` in the untracked stack env file. Follow [Shell stack](docs/shell-stack.md) to clone and pin `darkrei08/pi-second-brain-backend` at `90829792807c1e371122f7364eaa0c56111fc335` and `darkrei08/pi-second-brain-shell` at `0b76a702e3d8289e2cea331f38a272438ce5d1a1`. When a package is versioned, update the checkout and both recorded pins; do not copy source into this repository. The integration is one filter for retrieval plus one pipe that exposes research as a model.
 
-Source: https://github.com/LibreChat-AI/LibreChat
+### Evaluated alternative: LibreChat
+
+LibreChat scores well on features and is MIT licensed, and it was the earlier recommendation. It was not chosen: for custom endpoints it forces attachments through its own RAG service, so keeping a single provenance store would mean implementing its whole RAG contract over our storage, including its authorization model. Source: https://github.com/LibreChat-AI/LibreChat
 
 ### Optional desktop UI: OpenChat
 

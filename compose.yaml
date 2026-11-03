@@ -3,19 +3,83 @@ services:
     image: pgvector/pgvector:pg17
     restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
-      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in shell-stack.env}
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in shell-stack.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in shell-stack.env}
     ports:
-      - "127.0.0.1:55432:5432"
+      - "127.0.0.1:55433:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
-      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+      - ${BACKEND_REPO:?set BACKEND_REPO in the stack env file}/docker/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 10
 
+  gateway:
+    image: node:22-bookworm-slim
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@127.0.0.1:55433/${POSTGRES_DB}
+      GATEWAY_HOST: 127.0.0.1
+      GATEWAY_PORT: 18080
+      GATEWAY_PRINCIPALS: ${GATEWAY_PRINCIPALS:?set GATEWAY_PRINCIPALS in shell-stack.env}
+      ANSWER_BASE_URL: ${ANSWER_BASE_URL:?set ANSWER_BASE_URL in shell-stack.env}
+      ANSWER_MODEL: ${ANSWER_MODEL:?set ANSWER_MODEL in shell-stack.env}
+      ANSWER_API_KEY: ${ANSWER_API_KEY:?set ANSWER_API_KEY in shell-stack.env}
+      ANSWER_ALLOWED_HOSTS: ${ANSWER_ALLOWED_HOSTS:?set ANSWER_ALLOWED_HOSTS in shell-stack.env}
+    network_mode: host
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ${BACKEND_REPO:?set BACKEND_REPO in the stack env file}:/package:ro
+      - gateway-node-modules:/app/node_modules
+    command: >-
+      sh -c 'cp -a /package/. /app/ && npm ci --ignore-scripts && npm run migrate && npm start'
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:18080/healthz').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  shell:
+    image: ghcr.io/open-webui/open-webui:v0.6.5
+    network_mode: host
+    environment:
+      HOST: 127.0.0.1
+      PORT: 3300
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:?set WEBUI_SECRET_KEY in shell-stack.env}
+      WEBUI_AUTH: "true"
+      ENABLE_FOLDERS: "true"
+      ENABLE_OPENAI_API: "true"
+      ENABLE_DIRECT_CONNECTIONS: "false"
+      ENABLE_OLLAMA_API: "false"
+      OPENAI_API_BASE_URLS: ${GATEWAY_URL:?set GATEWAY_URL in shell-stack.env}/v1
+      OPENAI_API_KEYS: ${GATEWAY_TOKEN:?set GATEWAY_TOKEN in shell-stack.env}
+      GATEWAY_URL: ${GATEWAY_URL}/
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN}
+      SCARF_NO_ANALYTICS: "true"
+      DO_NOT_TRACK: "true"
+      ANONYMIZED_TELEMETRY: "false"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    volumes:
+      - open-webui-data:/app/backend/data
+      - ${SHELL_REPO:?set SHELL_REPO in the stack env file}/filters:/app/backend/data/functions/filters:ro
+      - ${SHELL_REPO:?set SHELL_REPO in the stack env file}/pipes:/app/backend/data/functions/pipes:ro
+      - ${SHELL_REPO:?set SHELL_REPO in the stack env file}/bootstrap.py:/opt/second-brain/bootstrap.py:ro
+    command: >-
+      bash -euc '/app/backend/start.sh & webui_pid=$$!; trap "kill $$webui_pid 2>/dev/null || true" EXIT; python /opt/second-brain/bootstrap.py; wait $$webui_pid'
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail http://127.0.0.1:3300/health | jq -e '.status == true' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
 volumes:
+  gateway-node-modules:
+  open-webui-data:
   postgres-data:
