@@ -15,13 +15,13 @@ Implements `.scratch/openwebui-glue/issues/02-implement-openwebui-glue.md` under
 
 | ID | Spec | Route | Commit |
 |---|---|---|---|
-| T1 | S1-S3, S5 | `openwebui/filter.py` and contract tests | `0ca115f` |
-| T2 | S4-S5, S6 | `openwebui/pipe.py` and contract tests | `0ca115f` |
-| T3 | all | docs, tracker closure, traceability | `0ca115f` |
+| T1 | S1-S3, S5 | `openwebui/filter.py` and contract tests | `0c6ef08` |
+| T2 | S4-S5, S6 | `openwebui/pipe.py` and contract tests | `0c6ef08` |
+| T3 | all | docs, tracker closure, traceability | `0c6ef08` |
 
 ## Log
 
 - L1 (2026-11-06): Inherited V6 and resolved the glue contract from the existing gateway routes. No Open WebUI installation is allowed or available.
 - L2 (2026-11-06): Spec published at `.scratch/openwebui-glue/spec.md`; implementation ticket marked `ready-for-agent`.
 - L3 (2026-11-06): Contract tests observed RED before the modules existed, then GREEN with 7 Python cases, Python syntax checks, and the Node wrapper. No Open WebUI instance was installed.
-- L4 (2026-11-06): Implemented both Functions and documentation in `0ca115f`. The sequential full Node suite passed; the default parallel suite remains unsuitable in this worktree because unrelated gateway tests race on a shared server.
+- L4 (2026-11-06): Implemented both Functions and documentation in `0c6ef08`. The sequential full Node suite passed; the default parallel suite remains unsuitable in this worktree because unrelated gateway tests race on a shared server.

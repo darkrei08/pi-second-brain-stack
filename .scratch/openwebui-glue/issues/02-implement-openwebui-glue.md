@@ -34,7 +34,7 @@ Implemented in `openwebui/filter.py` and `openwebui/pipe.py`.
 - Contract tests run without Open WebUI. `node --test --test-concurrency=1` passes 90 tests with 22 expected integration skips. The default parallel `npm test` was not a valid proof in this worktree because unrelated pre-existing gateway tests race on one server and fail with `ERR_SERVER_ALREADY_LISTEN`.
 - Open WebUI end-to-end import, folder propagation, and rendering remain unverified because no Open WebUI instance is installed.
 
-Commit: `0ca115f`
+Commit: `0c6ef08`
 
 ## Comments
 
