@@ -25,4 +25,4 @@ Acceptance criteria and ratified behavior, quoted verbatim:
 ## Log
 
 - L1: Wayfinder A6-stream ratified the trailing `event: grounding` record. Content is never presented as grounded metadata until the complete answer has streamed.
-- L2: Focused route and adapter tests passed 5/5. The assigned pgvector container `sbs-test-pg-stream` ran the repository integration command at port `55442` with 26/26 passing. Full unit-suite execution remains blocked by an unrelated uncommitted metrics regex syntax error in `test/gateway-server.test.js`.
+- L2: `npm test` passed 90 tests with 22 expected skips; focused route and adapter tests passed 5/5; the assigned pgvector container `sbs-test-pg-stream` ran the repository integration command at port `55442` with 26/26 passing.

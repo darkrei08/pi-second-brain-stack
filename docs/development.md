@@ -62,7 +62,7 @@ curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application
   http://127.0.0.1:8080/v1/answers
 ```
 
-The OpenAI-compatible `POST /v1/chat/completions` entry, streaming, the Open WebUI filter and pipe, and TLS termination are not implemented.
+`POST /v1/chat/completions` accepts an OpenAI-shaped `model` and `messages` body; the latest user message is answered through the same grounded use case as `/v1/answers`. With `stream: true` it returns SSE content chunks, then one trailing `event: grounding` record containing citations, retrieval, and uncertainty, followed by the finish chunk and `[DONE]`. A client that disconnects before the grounding event receives no grounding report. With `stream: false` it returns the same report in a normal JSON completion. The configured `ANSWER_MODEL` remains authoritative; the request `model` is compatibility metadata.
 
 ## Verify the package
 
