@@ -30,4 +30,4 @@ Implements `.scratch/gateway-hardening/issues/04-gateway-hardening.md` under H1-
 
 ## Verification
 
-Completed. Commit references are added after the work-unit commit is created.
+Completed. Implementation commit: `c0768e4` (`feat(gateway): harden deployment boundary`).
