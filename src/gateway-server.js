@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 
 import { answerQuestion } from './answer-question.js';
+import { createChatCompletion, parseChatCompletionRequest, writeChatCompletionStream } from './chat-completions.js';
 import { GatewayError, errorPayload } from './gateway-error.js';
 import { describeRetrievalMode, segmentDocument } from './index.js';
 
@@ -205,6 +206,31 @@ export function createGatewayServer({ storage, authenticator, embed, chat, answe
       };
     },
 
+    'POST /v1/chat/completions': async ({ body, owner_id, response }) => {
+      if (chat === undefined || answer_model === undefined) {
+        throw new GatewayError(503, 'answers_unavailable', 'No answer model is configured');
+      }
+      const request = parseChatCompletionRequest(body);
+      const result = await answerQuestion({
+        storage,
+        chat,
+        embed,
+        question: request.question,
+        owner_id,
+        collection_ids: request.collection_ids,
+        // The chat model and the embedding model are different models with different identities.
+        model_id: answer_model,
+        embedding_model_id: embed === undefined ? undefined : request.embedding_model_id,
+        limit: request.limit ?? 6,
+        max_tokens: request.max_tokens ?? 600
+      });
+      if (request.stream) {
+        await writeChatCompletionStream(response, { answer_model, result });
+        return { streamed: true };
+      }
+      return { status: 200, body: createChatCompletion({ answer_model, result }) };
+    },
+
     'GET /v1/models': async ({ query, owner_id }) => {
       const models = await storage.listEmbeddingModels();
       const requested = query.get('model_id');
@@ -265,16 +291,19 @@ export function createGatewayServer({ storage, authenticator, embed, chat, answe
         const body = await readJsonBody(request, max_body_bytes);
         requireObject(body, 'body');
         rejectCallerOwner(body);
-        return await handler({ body, query: url.searchParams, owner_id: identity.owner_id });
+        return await handler({ body, query: url.searchParams, owner_id: identity.owner_id, response });
       }
-      return await handler({ body: {}, query: url.searchParams, owner_id: identity.owner_id });
+      return await handler({ body: {}, query: url.searchParams, owner_id: identity.owner_id, response });
     }
-    return await handler({ body: {}, query: url.searchParams, owner_id: null });
+    return await handler({ body: {}, query: url.searchParams, owner_id: null, response });
   }
 
   const server = createServer((request, response) => {
     handle(request, response)
-      .then((result) => send(response, result.status, result.body))
+      .then((result) => {
+        if (result?.streamed) return;
+        send(response, result.status, result.body);
+      })
       .catch((error) => {
         const mapped = mapSeamFailure(error) ?? error;
         const { status, body } = errorPayload(mapped);
