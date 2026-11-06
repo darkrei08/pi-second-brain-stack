@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { readFileSync } from 'node:fs';
+
 import pg from 'pg';
 
 import { createOpenAICompatibleChat, createOpenAICompatibleEmbedder, createStorage } from './index.js';
@@ -12,6 +14,18 @@ try {
   config = loadGatewayConfig(process.env);
 } catch (error) {
   process.stderr.write(`gateway configuration refused: ${error.message}\n`);
+  process.exit(1);
+}
+let tls;
+try {
+  if (config.tls_cert_file !== undefined) {
+    tls = {
+      cert: readFileSync(config.tls_cert_file),
+      key: readFileSync(config.tls_key_file)
+    };
+  }
+} catch {
+  process.stderr.write('gateway TLS configuration refused: certificate or key could not be read\n');
   process.exit(1);
 }
 const pool = new pg.Pool({ connectionString: config.database_url });
@@ -38,6 +52,10 @@ const gateway = createGatewayServer({
     owner_id: config.owner_id,
     shell_users: config.shell_users
   }),
+  audit: (event) => process.stderr.write(`${JSON.stringify({ event: 'gateway_request', ...event })}\n`),
+  requests_per_minute: config.requests_per_minute,
+  max_concurrent_requests: config.max_concurrent_requests,
+  tls,
   embed
 });
 

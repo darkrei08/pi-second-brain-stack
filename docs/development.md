@@ -42,7 +42,11 @@ export ANSWER_API_KEY='local-key'
 npm start
 ```
 
-`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB.
+`GATEWAY_HOST` defaults to `127.0.0.1` and `GATEWAY_PORT` to `8080`. The routes are `GET /healthz`, `GET /readyz`, `GET /metrics`, `POST /v1/documents/ingest`, `POST /v1/retrieval/query`, `POST /v1/citations/resolve`, `POST /v1/answers`, and `GET /v1/models`. Every route except the two probes requires `Authorization: Bearer $GATEWAY_TOKEN`; a request that names `owner_id` is rejected. Bodies are JSON, capped at 1 MiB. `/metrics` is authenticated and contains only fixed route/method/status labels and aggregate counters. The gateway emits redacted request audit events to stderr from the CLI; no request body, owner id, token, document text, or provider body is logged.
+
+The default process-local quota is 60 authenticated data-route requests per minute and 8 concurrent requests per derived owner. Override it with positive integer `GATEWAY_REQUESTS_PER_MINUTE` and `GATEWAY_MAX_CONCURRENT_REQUESTS`; an exceeded quota returns `429` before body parsing. This is not distributed enforcement for multiple gateway replicas.
+
+TLS is off by default. Configure both `GATEWAY_TLS_CERT_FILE` and `GATEWAY_TLS_KEY_FILE` to make the Node gateway serve HTTPS. The pair is read only at startup. To run the packaged gateway with PostgreSQL, use `docker compose -f compose.yaml -f compose.gateway.yaml up -d`; the host port remains loopback-only. For TLS, add `-f compose.gateway.tls.example.yaml` and set `GATEWAY_TLS_DIR` to a host directory containing `fullchain.pem` and `privkey.pem`.
 
 ```bash
 curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \

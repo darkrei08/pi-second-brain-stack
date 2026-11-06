@@ -3,6 +3,8 @@ import { OPAQUE_ID_PATTERN } from './opaque-id.js';
 export const DEFAULT_HOST = '127.0.0.1';
 export const DEFAULT_PORT = 8080;
 export const MINIMUM_TOKEN_LENGTH = 32;
+export const DEFAULT_REQUESTS_PER_MINUTE = 60;
+export const DEFAULT_MAX_CONCURRENT_REQUESTS = 8;
 
 function requireEnv(env, name) {
   const value = env[name];
@@ -12,16 +14,25 @@ function requireEnv(env, name) {
   return value;
 }
 
-function parsePort(value) {
-  if (value === undefined) return DEFAULT_PORT;
-  if (!/^\d+$/u.test(value)) {
-    throw new TypeError('GATEWAY_PORT must be an integer between 1 and 65535');
+function parsePositiveInteger(value, name, default_value) {
+  if (value === undefined) return default_value;
+  if (!/^\d+$/u.test(value) || Number(value) < 1) {
+    throw new TypeError(`${name} must be a positive integer`);
   }
-  const port = Number(value);
-  if (port < 1 || port > 65535) {
+  return Number(value);
+}
+
+function parsePort(value) {
+  const port = parsePositiveInteger(value, 'GATEWAY_PORT', DEFAULT_PORT);
+  if (port > 65535) {
     throw new TypeError('GATEWAY_PORT must be an integer between 1 and 65535');
   }
   return port;
+}
+
+function optionalEnv(env, name) {
+  const value = env[name];
+  return value === undefined || value === '' ? undefined : requireEnv(env, name);
 }
 
 function parseShellUsers(value) {
@@ -55,12 +66,21 @@ export function loadGatewayConfig(env = process.env) {
   if (!OPAQUE_ID_PATTERN.test(owner_id)) {
     throw new TypeError('GATEWAY_OWNER_ID must be opaque');
   }
+  const tls_cert_file = optionalEnv(env, 'GATEWAY_TLS_CERT_FILE');
+  const tls_key_file = optionalEnv(env, 'GATEWAY_TLS_KEY_FILE');
+  if ((tls_cert_file === undefined) !== (tls_key_file === undefined)) {
+    throw new TypeError('GATEWAY_TLS_CERT_FILE and GATEWAY_TLS_KEY_FILE must be configured together');
+  }
   const config = {
     host: env.GATEWAY_HOST === undefined ? DEFAULT_HOST : requireEnv(env, 'GATEWAY_HOST'),
     port: parsePort(env.GATEWAY_PORT),
     owner_id,
     shell_users: parseShellUsers(env.GATEWAY_SHELL_USERS),
-    database_url
+    database_url,
+    tls_cert_file,
+    tls_key_file,
+    requests_per_minute: parsePositiveInteger(env.GATEWAY_REQUESTS_PER_MINUTE, 'GATEWAY_REQUESTS_PER_MINUTE', DEFAULT_REQUESTS_PER_MINUTE),
+    max_concurrent_requests: parsePositiveInteger(env.GATEWAY_MAX_CONCURRENT_REQUESTS, 'GATEWAY_MAX_CONCURRENT_REQUESTS', DEFAULT_MAX_CONCURRENT_REQUESTS)
   };
   // The token is not enumerable, so a logged config can never carry it.
   Object.defineProperty(config, 'token', { value: token, enumerable: false });

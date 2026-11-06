@@ -44,7 +44,7 @@ function withServer(storage, options = {}) {
 }
 
 async function call(gateway, path, { method = 'GET', headers = auth, body, rawBody, contentLength } = {}) {
-  const { port } = await gateway.start({ port: 0 });
+  const { port } = gateway.server.listening ? { port: gateway.server.address().port } : await gateway.start({ port: 0 });
   const payload = rawBody ?? (body === undefined ? undefined : JSON.stringify(body));
   const requestHeaders = { ...headers };
   if (payload !== undefined && requestHeaders['content-type'] === undefined) {
@@ -57,7 +57,8 @@ async function call(gateway, path, { method = 'GET', headers = auth, body, rawBo
       response.on('data', (chunk) => chunks.push(chunk));
       response.on('end', () => {
         const text = Buffer.concat(chunks).toString('utf8');
-        resolve({ status: response.statusCode, headers: response.headers, body: text === '' ? null : JSON.parse(text) });
+        const body = text === '' ? null : response.headers['content-type']?.startsWith('application/json') ? JSON.parse(text) : text;
+        resolve({ status: response.statusCode, headers: response.headers, body });
       });
     });
     request.on('error', reject);
@@ -72,6 +73,69 @@ async function expectStatus(gateway, path, options, status) {
   assert.equal(response.status, status, `${path} -> ${response.status} ${JSON.stringify(response.body)}`);
   return response;
 }
+
+test('serves redacted metrics and isolates audit sink failures', async () => {
+  const events = [];
+  const gateway = withServer(createRecordingStorage(), {
+    audit: (event) => {
+      events.push(event);
+      throw new Error('audit sink unavailable');
+    }
+  });
+  const health = await call(gateway, '/healthz', { headers: {} });
+  assert.equal(health.status, 200);
+  const metrics = await call(gateway, '/metrics');
+  await gateway.stop();
+  assert.equal(metrics.status, 200);
+  assert.match(metrics.body, /gateway_requests_total/);
+  assert.match(metrics.body, /route="\/healthz"/);
+  assert.doesNotMatch(metrics.body, new RegExp(token));
+  assert.doesNotMatch(metrics.body, /owner-one/);
+  assert.equal(events.length >= 2, true);
+  assert.deepEqual(Object.keys(events[0]).sort(), ['duration_ms', 'method', 'outcome', 'request_id', 'route', 'status']);
+  assert.equal(events[0].route, '/healthz');
+});
+
+test('enforces quotas before reading a body and releases quota after completion', async () => {
+  const gateway = withServer(createRecordingStorage(), {
+    requests_per_minute: 1,
+    max_concurrent_requests: 1
+  });
+  const first = await call(gateway, '/v1/models');
+  const rejected = await call(gateway, '/v1/retrieval/query', {
+    method: 'POST',
+    rawBody: '{not-json'
+  });
+  await gateway.stop();
+  assert.equal(first.status, 200);
+  assert.equal(rejected.status, 429);
+  assert.deepEqual(rejected.body.error, { code: 'quota_exceeded', message: 'Request quota exceeded' });
+  assert.equal(rejected.headers['retry-after'], '60');
+
+  const released = withServer(createRecordingStorage(), {
+    requests_per_minute: 2,
+    max_concurrent_requests: 1
+  });
+  const one = await call(released, '/v1/models');
+  const two = await call(released, '/v1/models');
+  await released.stop();
+  assert.equal(one.status, 200);
+  assert.equal(two.status, 200);
+});
+
+test('does not charge health and readiness probes to owner quota', async () => {
+  const gateway = withServer(createRecordingStorage(), {
+    requests_per_minute: 1,
+    max_concurrent_requests: 1
+  });
+  const health = await call(gateway, '/healthz', { headers: {} });
+  const ready = await call(gateway, '/readyz', { headers: {} });
+  const data = await call(gateway, '/v1/models');
+  await gateway.stop();
+  assert.equal(health.status, 200);
+  assert.equal(ready.status, 200);
+  assert.equal(data.status, 200);
+});
 
 test('serves liveness without a dependency and refuses unknown routes and methods', async () => {
   const storage = createRecordingStorage();

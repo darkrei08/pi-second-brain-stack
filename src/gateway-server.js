@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { createServer } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
 
 import { answerQuestion } from './answer-question.js';
 import { createChatCompletion, parseChatCompletionRequest, writeChatCompletionStream } from './chat-completions.js';
@@ -9,6 +11,8 @@ export const MAX_BODY_BYTES = 1024 * 1024;
 const MAX_CITATION_BATCH = 100;
 const JSON_CONTENT_TYPE = /^application\/json(?:;|$)/iu;
 const UNAUTHENTICATED_PATHS = new Set(['/healthz', '/readyz']);
+const QUOTA_WINDOW_MS = 60_000;
+const RETRY_AFTER_SECONDS = 60;
 // Seam errors with a stable message that means the caller sent something unusable.
 const SEAM_FAILURES = [
   { pattern: /^embedding model is not registered$/u, status: 400, code: 'invalid_request' },
@@ -91,17 +95,58 @@ function optionalCollectionIds(body) {
 }
 
 function send(response, status, payload, extraHeaders = {}) {
-  const serialized = JSON.stringify(payload);
+  const text = typeof payload === 'string' ? payload : JSON.stringify(payload);
   response.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'content-length': Buffer.byteLength(serialized),
+    'content-type': typeof payload === 'string' ? 'text/plain; version=0.0.4; charset=utf-8' : 'application/json; charset=utf-8',
+    'content-length': Buffer.byteLength(text),
     'cache-control': 'no-store',
     ...extraHeaders
   });
-  response.end(serialized);
+  response.end(text);
 }
 
-export function createGatewayServer({ storage, authenticator, embed, chat, answer_model, max_body_bytes = MAX_BODY_BYTES } = {}) {
+function createQuota({ requests_per_minute, max_concurrent_requests }) {
+  const owners = new Map();
+  return {
+    acquire(owner_id) {
+      const now = Date.now();
+      const current = owners.get(owner_id);
+      const state = current === undefined || now - current.window_started_at >= QUOTA_WINDOW_MS
+        ? { window_started_at: now, request_count: 0, active_count: 0 }
+        : current;
+      if (state.request_count >= requests_per_minute || state.active_count >= max_concurrent_requests) {
+        const error = new GatewayError(429, 'quota_exceeded', 'Request quota exceeded');
+        error.headers = { 'retry-after': String(RETRY_AFTER_SECONDS) };
+        throw error;
+      }
+      state.request_count += 1;
+      state.active_count += 1;
+      owners.set(owner_id, state);
+      let released = false;
+      return () => {
+        if (released) return;
+        released = true;
+        state.active_count -= 1;
+        if (state.active_count === 0 && now - state.window_started_at >= QUOTA_WINDOW_MS) {
+          owners.delete(owner_id);
+        }
+      };
+    }
+  };
+}
+
+export function createGatewayServer({
+  storage,
+  authenticator,
+  embed,
+  chat,
+  answer_model,
+  audit,
+  requests_per_minute = 60,
+  max_concurrent_requests = 8,
+  max_body_bytes = MAX_BODY_BYTES,
+  tls
+} = {}) {
   if (storage === undefined || storage === null) {
     throw new TypeError('storage is required');
   }
@@ -114,15 +159,86 @@ export function createGatewayServer({ storage, authenticator, embed, chat, answe
   if (chat !== undefined && typeof chat !== 'function') {
     throw new TypeError('chat must be a function when provided');
   }
+  if (audit !== undefined && typeof audit !== 'function') {
+    throw new TypeError('audit must be a function when provided');
+  }
   if (answer_model !== undefined && (typeof answer_model !== 'string' || answer_model.trim() === '')) {
     throw new TypeError('answer_model must be non-empty text when provided');
   }
   if (!Number.isInteger(max_body_bytes) || max_body_bytes < 1) {
     throw new TypeError('max_body_bytes must be a positive integer');
   }
+  if (!Number.isInteger(requests_per_minute) || requests_per_minute < 1) {
+    throw new TypeError('requests_per_minute must be a positive integer');
+  }
+  if (!Number.isInteger(max_concurrent_requests) || max_concurrent_requests < 1) {
+    throw new TypeError('max_concurrent_requests must be a positive integer');
+  }
+  if (tls !== undefined && (tls === null || typeof tls !== 'object'
+    || (!Buffer.isBuffer(tls.key) && typeof tls.key !== 'string')
+    || (!Buffer.isBuffer(tls.cert) && typeof tls.cert !== 'string'))) {
+    throw new TypeError('tls must contain certificate and key text when provided');
+  }
+
+  const quota = createQuota({ requests_per_minute, max_concurrent_requests });
+  const metrics = new Map();
+  let active_requests = 0;
+
+  function renderMetrics() {
+    const lines = [
+      '# HELP gateway_requests_total Completed gateway requests.',
+      '# TYPE gateway_requests_total counter'
+    ];
+    for (const [{ method, route, status }, value] of metrics) {
+      lines.push(`gateway_requests_total{method="${method}",route="${route}",status="${status}"} ${value.count}`);
+    }
+    lines.push('# HELP gateway_active_requests In-flight gateway requests.');
+    lines.push('# TYPE gateway_active_requests gauge');
+    lines.push(`gateway_active_requests ${active_requests}`);
+    lines.push('# HELP gateway_request_duration_ms_sum Cumulative gateway request duration in milliseconds.');
+    lines.push('# TYPE gateway_request_duration_ms_sum counter');
+    for (const [{ method, route, status }, value] of metrics) {
+      lines.push(`gateway_request_duration_ms_sum{method="${method}",route="${route}",status="${status}"} ${value.duration_ms}`);
+    }
+    lines.push('# HELP gateway_request_duration_ms_count Completed gateway request durations.');
+    lines.push('# TYPE gateway_request_duration_ms_count counter');
+    for (const [{ method, route, status }, value] of metrics) {
+      lines.push(`gateway_request_duration_ms_count{method="${method}",route="${route}",status="${status}"} ${value.count}`);
+    }
+    return `${lines.join('\n')}\n`;
+  }
+
+  function routeLabel(request) {
+    try {
+      const pathname = new URL(request.url ?? '/', 'http://gateway.invalid').pathname;
+      return paths.has(pathname) ? pathname : 'unknown';
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  function recordRequest(method, route, status, duration_ms) {
+    const key = { method, route, status };
+    const existing = [...metrics.keys()].find((candidate) => candidate.method === method && candidate.route === route && candidate.status === status);
+    const value = existing === undefined ? { count: 0, duration_ms: 0 } : metrics.get(existing);
+    value.count += 1;
+    value.duration_ms += duration_ms;
+    if (existing === undefined) metrics.set(key, value);
+  }
+
+  function emitAudit(event) {
+    if (audit === undefined) return;
+    try {
+      audit(event);
+    } catch {
+      // Audit delivery is best effort and cannot change the request outcome.
+    }
+  }
 
   const handlers = {
     'GET /healthz': () => ({ status: 200, body: { status: 'ok' } }),
+
+    'GET /metrics': () => ({ status: 200, body: renderMetrics() }),
 
     'GET /readyz': async () => {
       try {
@@ -286,23 +402,44 @@ export function createGatewayServer({ storage, authenticator, embed, chat, answe
       error.headers = { allow: [...allowed].join(', ') };
       throw error;
     }
-    if (identity.owner_id !== null) {
-      if (request.method === 'POST') {
-        const body = await readJsonBody(request, max_body_bytes);
-        requireObject(body, 'body');
-        rejectCallerOwner(body);
-        return await handler({ body, query: url.searchParams, owner_id: identity.owner_id, response });
+    let release;
+    try {
+      if (identity.owner_id !== null) {
+        release = quota.acquire(identity.owner_id);
+        if (request.method === 'POST') {
+          const body = await readJsonBody(request, max_body_bytes);
+          requireObject(body, 'body');
+          rejectCallerOwner(body);
+          return await handler({ body, query: url.searchParams, owner_id: identity.owner_id, response });
+        }
+        return await handler({ body: {}, query: url.searchParams, owner_id: identity.owner_id, response });
       }
-      return await handler({ body: {}, query: url.searchParams, owner_id: identity.owner_id, response });
+      return await handler({ body: {}, query: url.searchParams, owner_id: null, response });
+    } finally {
+      release?.();
     }
-    return await handler({ body: {}, query: url.searchParams, owner_id: null, response });
   }
 
-  const server = createServer((request, response) => {
+  const create = tls === undefined ? createServer : createHttpsServer;
+  const server = create(tls, (request, response) => {
+    const started_at = Date.now();
+    const request_id = randomUUID();
+    const route = routeLabel(request);
+    active_requests += 1;
+    const complete = (status, outcome) => {
+      const duration_ms = Date.now() - started_at;
+      active_requests -= 1;
+      recordRequest(request.method ?? 'UNKNOWN', route, status, duration_ms);
+      emitAudit({ request_id, method: request.method ?? 'UNKNOWN', route, status, duration_ms, outcome });
+    };
     handle(request, response)
       .then((result) => {
-        if (result?.streamed) return;
+        if (result?.streamed) {
+          complete(200, 'ok');
+          return;
+        }
         send(response, result.status, result.body);
+        complete(result.status, result.status < 400 ? 'ok' : 'error');
       })
       .catch((error) => {
         const mapped = mapSeamFailure(error) ?? error;
@@ -310,10 +447,12 @@ export function createGatewayServer({ storage, authenticator, embed, chat, answe
         const headers = mapped instanceof GatewayError && mapped.headers ? mapped.headers : {};
         if (response.headersSent) {
           response.destroy();
+          complete(status, 'error');
           return;
         }
         // An oversized body was refused without reading it, so the connection cannot be reused safely.
         send(response, status, body, status === 413 ? { ...headers, connection: 'close' } : headers);
+        complete(status, 'error');
         if (status === 413) request.destroy();
       });
   });
@@ -331,7 +470,7 @@ export function createGatewayServer({ storage, authenticator, embed, chat, answe
         server.listen(port, host, resolve);
       });
       const address = server.address();
-      return { host, port: address.port, url: `http://${host}:${address.port}` };
+      return { host, port: address.port, url: `${tls === undefined ? 'http' : 'https'}://${host}:${address.port}` };
     },
     async stop() {
       if (!server.listening) return;

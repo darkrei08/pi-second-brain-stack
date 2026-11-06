@@ -25,13 +25,13 @@ Never commit originals, OCR text, embeddings, graph exports, database dumps, sec
 - Do not expose PostgreSQL, pgvector, object storage, parser workers, or model-admin endpoints.
 - Require gateway authentication even for one human operator.
 - Keep outbound model and tool access disabled unless explicitly configured.
-- Use TLS whenever a request leaves the host.
+- Use TLS whenever a request leaves the host. The gateway can terminate TLS when both certificate and key files are configured; it is plain HTTP only on the loopback default otherwise.
 
 ## Required lifecycle behavior
 
 Ingestion must preserve hash, parser, model, page, region, and source provenance. Deletion must cover originals, OCR, page images, chunks, embeddings, graph rows, caches, logs according to policy, and backups according to the backup-retention procedure.
 
-The runtime must support export, restore testing, audit events, timeouts, resource limits, archive traversal checks, and prompt-injection handling for retrieved content.
+The runtime must support export, restore testing, audit events, timeouts, resource limits, archive traversal checks, and prompt-injection handling for retrieved content. The gateway's built-in audit events are redacted request metadata only; its process-local quota is not a distributed limiter.
 
 ## Compliance posture
 

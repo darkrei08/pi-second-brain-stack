@@ -61,6 +61,7 @@ POST /v1/data/export
 DELETE /v1/data/{id}
 GET  /healthz
 GET  /readyz
+GET  /metrics
 ```
 
 The surface decision adds five contracts. `POST /v1/chat/completions` stays the OpenAI-compatible entry the shell calls; the rest serve the shell's retrieval glue and the operator clients:
@@ -168,7 +169,8 @@ The privacy boundary is the gateway and its network policy:
 - support deletion of originals, derivatives, chunks, vectors, graph projections, caches, and backups according to the retention policy;
 - require human confirmation for consequential external or destructive actions;
 - include source identifiers, page/region provenance, model/provider identity, and uncertainty in responses;
-- use TLS whenever traffic leaves the host, and encrypt persistent data and backups with customer-controlled keys where feasible.
+- use TLS whenever traffic leaves the host, and encrypt persistent data and backups with customer-controlled keys where feasible;
+- expose authenticated dependency-free metrics with fixed labels and redacted audit events, and apply a bounded process-local quota at the gateway boundary.
 
 The deployment should be described as privacy-oriented and customer-controlled, not automatically GDPR- or EU AI Act-compliant. Obligations depend on purpose, data, users, contracts, and deployment. Relevant primary references include [GDPR](https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32016R0679), [EU AI Act](https://eur-lex.europa.eu/eli/reg/2024/1689), [EDPB controller/processor guidance](https://www.edpb.europa.eu/sme/learn-the-basics/data-controller-or-data-processor_en), and [EDPB DPIA guidance](https://www.edpb.europa.eu/topics/accountability-and-compliance-tools/data-protection-impact-assessment_en).
 
