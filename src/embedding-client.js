@@ -1,6 +1,7 @@
 const DEFAULT_TIMEOUT_MS = 30000;
 const MAX_TIMEOUT_MS = 600000;
 const MAX_VECTOR_DIMENSIONS = 16000;
+const READINESS_TIMEOUT_MS = 3000;
 const LOOPBACK_HOSTS = new Set(['localhost', '[::1]', '::1', '::ffff:127.0.0.1']);
 const LOOPBACK_IPV4_PATTERN = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const LOOPBACK_MAPPED_IPV4_PATTERN = /^\[::ffff:127\.\d{1,3}\.\d{1,3}\.\d{1,3}\]$/;
@@ -25,7 +26,7 @@ function isLoopbackHostname(hostname) {
     LOOPBACK_MAPPED_IPV4_PATTERN.test(normalized);
 }
 
-function resolveEndpoint(base_url) {
+function resolveEndpoint(base_url, allowed_hosts = []) {
   requireNonEmptyText(base_url, 'base_url');
   let url;
   try {
@@ -43,7 +44,11 @@ function resolveEndpoint(base_url) {
   if (url.protocol === 'http:' && !isLoopbackHostname(url.hostname)) {
     throw new TypeError('base_url must use https unless the host is loopback');
   }
-  return `${url.origin}${url.pathname.replace(/\/+$/, '')}/embeddings`;
+  const hostname = url.hostname.toLowerCase().replace(/\.$/u, '');
+  if (!isLoopbackHostname(hostname) && !allowed_hosts.some((host) => host.toLowerCase().replace(/\.$/u, '') === hostname)) {
+    throw new TypeError(`provider host ${hostname} is not allowed; set EMBEDDING_ALLOWED_HOSTS`);
+  }
+  return `${url.origin}${url.pathname.replace(/\/+$/, '')}`;
 }
 
 function validateCallInput(input) {
@@ -93,11 +98,13 @@ function validateVectors(data, { dimensions, inputs }) {
   });
 }
 
-export function createOpenAICompatibleEmbedder({ fetch = globalThis.fetch, base_url, api_key, timeout_ms = DEFAULT_TIMEOUT_MS } = {}) {
+export function createOpenAICompatibleEmbedder({ fetch = globalThis.fetch, base_url, api_key, allowed_hosts = [], timeout_ms = DEFAULT_TIMEOUT_MS } = {}) {
   if (typeof fetch !== 'function') {
     throw new TypeError('fetch must be a function');
   }
-  const endpoint = resolveEndpoint(base_url);
+  const base_endpoint = resolveEndpoint(base_url, allowed_hosts);
+  const endpoint = `${base_endpoint}/embeddings`;
+  const models_endpoint = `${base_endpoint}/models`;
   if (api_key !== undefined) {
     requireNonEmptyText(api_key, 'api_key');
     if (!PRINTABLE_ASCII_PATTERN.test(api_key)) {
@@ -108,7 +115,7 @@ export function createOpenAICompatibleEmbedder({ fetch = globalThis.fetch, base_
     throw new TypeError(`timeout_ms must be an integer between 1 and ${MAX_TIMEOUT_MS}`);
   }
 
-  return async function embed(input) {
+  const embed = async function embed(input) {
     const { model_id, dimensions, inputs } = validateCallInput(input);
     const headers = { 'content-type': 'application/json' };
     if (api_key !== undefined) {
@@ -149,4 +156,34 @@ export function createOpenAICompatibleEmbedder({ fetch = globalThis.fetch, base_
     }
     return validateVectors(body.data, { dimensions, inputs });
   };
+  embed.probe = async function probe(model_id) {
+    requireNonEmptyText(model_id, 'model_id');
+    const headers = {};
+    if (api_key !== undefined) headers.authorization = `Bearer ${api_key}`;
+    let response;
+    try {
+      response = await fetch(models_endpoint, {
+        method: 'GET',
+        headers,
+        redirect: 'error',
+        signal: AbortSignal.timeout(READINESS_TIMEOUT_MS)
+      });
+    } catch (error) {
+      if (error && (error.name === 'TimeoutError' || error.name === 'AbortError')) {
+        throw new Error('embedding readiness request timed out');
+      }
+      throw new Error('embedding readiness request failed');
+    }
+    if (!response.ok) throw new Error(`embedding readiness request failed with status ${response.status}`);
+    let body;
+    try {
+      body = await response.json();
+    } catch {
+      throw new Error('embedding readiness response must be valid JSON');
+    }
+    if (!body || !Array.isArray(body.data) || !body.data.some((model) => model && model.id === model_id)) {
+      throw new Error('embedding model is not available');
+    }
+  };
+  return embed;
 }

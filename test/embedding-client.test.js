@@ -1,10 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createOpenAICompatibleEmbedder, runEmbeddingBackfill } from '../src/index.js';
+import { createOpenAICompatibleEmbedder as createEmbedder, runEmbeddingBackfill } from '../src/index.js';
 
 const apiKey = 'sk-test-secret-value';
 const modelId = 'text-embedding-synthetic-3d';
+
+function createOpenAICompatibleEmbedder(options) {
+  return createEmbedder({ allowed_hosts: ['api.example.test'], ...options });
+}
 
 function vectorsFor(inputs, dimensions = 3) {
   return inputs.map((_, index) => Array.from({ length: dimensions }, (_, axis) => (axis === index % dimensions ? 1 : 0)));
@@ -71,6 +75,25 @@ test('sends the documented request to a loopback endpoint without a key', async 
   assert.deepEqual(JSON.parse(init.body), { model: modelId, input: inputs });
   assert.ok(init.signal instanceof AbortSignal);
   assert.deepEqual(vectors, vectorsFor(inputs));
+});
+
+test('allows declared remote provider hosts and refuses an unlisted host before fetch', async () => {
+  let called = false;
+  assert.throws(
+    () => createOpenAICompatibleEmbedder({
+      base_url: 'https://unlisted.example.test/v1',
+      fetch: async () => { called = true; }
+    }),
+    /provider host unlisted.example.test is not allowed; set EMBEDDING_ALLOWED_HOSTS/
+  );
+  assert.equal(called, false);
+
+  const embed = createOpenAICompatibleEmbedder({
+    fetch: createFetch({ body: embedderBody(['alpha']) }),
+    base_url: 'https://Embeddings.Example.Test./v1',
+    allowed_hosts: ['embeddings.example.test']
+  });
+  assert.deepEqual(await embed({ model_id: modelId, dimensions: 3, inputs: ['alpha'] }), [[1, 0, 0]]);
 });
 
 test('sends the bearer header for an https endpoint and keeps input order', async () => {
