@@ -24,6 +24,9 @@ postgres-data/
 # Local tooling
 .worktrees/
 .pi/
+# Python bytecode from running the Open WebUI plugin tests
+__pycache__/
+*.pyc
 
 # Installed dependencies are environment, not repository content
 node_modules
