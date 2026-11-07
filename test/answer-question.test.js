@@ -146,7 +146,7 @@ test('reports high uncertainty for an out-of-range or missing citation', async (
   assert.equal(uncited.uncertainty.cited_count, 0);
 });
 
-test('records a stale citation instead of repairing it', async () => {
+test('withholds the generated answer when cited evidence becomes stale', async () => {
   const storage = createStorage({ matches: [match(1)], stale_ids: ['urn:segment:urn:document:doc-1:0'] });
   const result = await answerQuestion({
     storage,
@@ -155,6 +155,8 @@ test('records a stale citation instead of repairing it', async () => {
     owner_id,
     model_id: 'synthetic-chat'
   });
+  assert.equal(result.answer, INSUFFICIENT_EVIDENCE_ANSWER);
+  assert.deepEqual(result.citations, []);
   assert.deepEqual(result.stale_citations, ['urn:segment:urn:document:doc-1:0']);
   assert.equal(result.uncertainty.level, 'high');
   assert.equal(result.uncertainty.stale_count, 1);
