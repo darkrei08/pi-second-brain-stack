@@ -5,9 +5,9 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
       POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing POSTGRES_PASSWORD; run scripts/compose-up.sh}
     ports:
-      - "127.0.0.1:55432:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-55432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
@@ -17,5 +17,107 @@ services:
       timeout: 5s
       retries: 10
 
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - GATEWAY_TOKEN=${GATEWAY_TOKEN:?missing GATEWAY_TOKEN; run scripts/compose-up.sh}
+      - GATEWAY_OWNER_ID=${GATEWAY_OWNER_ID:?set GATEWAY_OWNER_ID in .env}
+      - GATEWAY_HOST=0.0.0.0
+      - GATEWAY_PORT=8080
+      - GATEWAY_REQUESTS_PER_MINUTE=${GATEWAY_REQUESTS_PER_MINUTE:-60}
+      - GATEWAY_MAX_CONCURRENT_REQUESTS=${GATEWAY_MAX_CONCURRENT_REQUESTS:-8}
+      - GATEWAY_SHELL_USERS=${GATEWAY_SHELL_USERS:-{}}
+      - GATEWAY_SHELL_MAPPING_TRUSTED=${GATEWAY_SHELL_MAPPING_TRUSTED:-false}
+      - GATEWAY_PRINCIPALS
+      - GATEWAY_MODEL_CONCURRENCY=${GATEWAY_MODEL_CONCURRENCY:-3}
+      - GATEWAY_MODEL_REQUESTS_PER_MINUTE=${GATEWAY_MODEL_REQUESTS_PER_MINUTE:-60}
+      - ANSWER_BASE_URL
+      - ANSWER_API_KEY
+      - ANSWER_MODEL
+      - ANSWER_ALLOWED_HOSTS
+      - EMBEDDING_BASE_URL
+      - EMBEDDING_API_KEY
+      - EMBEDDING_ALLOWED_HOSTS
+      - PARSER_ENGINE_BASE_URL=${PARSER_ENGINE_BASE_URL:-http://127.0.0.1:5001}
+      - PARSER_ENGINE_ALLOWED_HOSTS
+      - PARSER_ENGINE_TIMEOUT_MS=${PARSER_ENGINE_TIMEOUT_MS:-60000}
+    ports:
+      - "127.0.0.1:${GATEWAY_HOST_PORT:-8080}:8080"
+    volumes:
+      - originals-data:/var/lib/second-brain/originals
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          if [ -n "$$GATEWAY_TLS_CERT_FILE" ]; then
+          NODE_EXTRA_CA_CERTS="$$GATEWAY_TLS_CERT_FILE" node -e "fetch('https://localhost:8080/healthz').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))";
+          else
+          node -e "fetch('http://127.0.0.1:8080/healthz').then((response) => { if (!response.ok) process.exit(1); }).catch(() => process.exit(1))";
+          fi
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Shares the gateway network namespace so the parser engine stays off every host port
+  # and the gateway reaches it over loopback; it holds no credentials for any other service.
+  parser-engine:
+    image: ghcr.io/docling-project/docling-serve-cpu:v1.38.2
+    restart: unless-stopped
+    network_mode: service:gateway
+    depends_on:
+      - gateway
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=2)"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:v0.6.5
+    restart: unless-stopped
+    environment:
+      PORT: 3300
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:?missing WEBUI_SECRET_KEY; run scripts/compose-up.sh}
+    ports:
+      - "127.0.0.1:${WEBUI_HOST_PORT:-3300}:3300"
+    volumes:
+      - open-webui-data:/app/backend/data
+      - ./openwebui/filters:/app/backend/data/functions/filters:ro
+      - ./openwebui/pipes:/app/backend/data/functions/pipes:ro
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3300/health', timeout=2)"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  open-webui-bootstrap:
+    image: ghcr.io/open-webui/open-webui:v0.6.5
+    restart: "no"
+    network_mode: service:open-webui
+    environment:
+      GATEWAY_URL: ${GATEWAY_URL:-http://gateway:8080}
+      GATEWAY_TOKEN: ${GATEWAY_TOKEN:?missing GATEWAY_TOKEN; run scripts/compose-up.sh}
+    volumes:
+      - open-webui-data:/app/backend/data
+      - ./openwebui/filters:/app/backend/data/functions/filters:ro
+      - ./openwebui/pipes:/app/backend/data/functions/pipes:ro
+      - ./openwebui/bootstrap.py:/opt/second-brain/bootstrap.py:ro
+    command: ["python3", "/opt/second-brain/bootstrap.py"]
+    depends_on:
+      open-webui:
+        condition: service_healthy
+
 volumes:
   postgres-data:
+  originals-data:
+  open-webui-data:

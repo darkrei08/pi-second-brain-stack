@@ -1,7 +1,11 @@
 # Secrets and local configuration
 .env
 .env.*
+# Generated secret store written by scripts/compose-up.sh
+.secrets/
 !.env.example
+!.env.gateway.example
+!.env.tls.example
 
 # Runtime data: the P.IVA corpus never belongs in this repository
 data/
