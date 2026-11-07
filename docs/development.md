@@ -11,15 +11,17 @@ This repository contains public reference documentation, a safe PostgreSQL/pgvec
 
 ## Start the database skeleton
 
-Set the values in the shell or in an untracked local `.env` file. Use a random local password.
+The stack has one start command: it generates the secrets on first start and then runs compose. Start only PostgreSQL when you are developing against a database you run yourself.
 
 ```bash
-export POSTGRES_DB=rag
-export POSTGRES_USER=rag
-export POSTGRES_PASSWORD='replace-this-locally'
-docker compose config
-docker compose up -d postgres
-docker compose ps
+./scripts/compose-up.sh default up -d postgres
+./scripts/compose-up.sh default ps
+```
+
+The first run creates `.secrets/compose.env` (mode `0600`) with a random database password and the gateway and WebUI secrets. Read the password into your shell rather than onto the terminal, and never paste it into a tracked file:
+
+```bash
+POSTGRES_PASSWORD="$(sed -n 's/^POSTGRES_PASSWORD=//p' .secrets/compose.env)"
 ```
 
 The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/init/` enable `vector` and `pg_trgm` and create `documents`, `segments`, `segment_embeddings`, `embedding_models`, `collections`, and `document_collections` with their indexes. They run only when the data volume is empty, so a volume created by an older checkout must be recreated before the current seams work. No P.IVA path is mounted by this reference file.
@@ -29,7 +31,7 @@ The port is bound to `127.0.0.1:55432`. The init scripts under `docker/postgres/
 The package ships one loopback-only HTTP boundary. It authenticates one bearer token, derives `owner_id` server-side from configuration, and exposes liveness, readiness, ingest, retrieval, citation revalidation, and model inspection. It adds no dependency and no build step.
 
 ```bash
-export DATABASE_URL='postgres://rag:replace-this-locally@127.0.0.1:55432/rag'
+export DATABASE_URL="postgres://second_brain:${POSTGRES_PASSWORD}@127.0.0.1:55432/second_brain"
 export GATEWAY_TOKEN="$(openssl rand -base64 32)"
 export GATEWAY_OWNER_ID=operator-owner
 # optional: map shell user ids to owners, and an optional embedder for hybrid mode
@@ -46,7 +48,7 @@ npm start
 
 The default process-local quota is 60 authenticated data-route requests per minute and 8 concurrent requests per derived owner. Override it with positive integer `GATEWAY_REQUESTS_PER_MINUTE` and `GATEWAY_MAX_CONCURRENT_REQUESTS`; an exceeded quota returns `429` before body parsing. This is not distributed enforcement for multiple gateway replicas.
 
-TLS is off by default. Configure both `GATEWAY_TLS_CERT_FILE` and `GATEWAY_TLS_KEY_FILE` to make the Node gateway serve HTTPS. The pair is read only at startup. To run the packaged gateway with PostgreSQL, use `docker compose -f compose.yaml -f compose.gateway.yaml up -d`; the host port remains loopback-only. For TLS, add `-f compose.gateway.tls.example.yaml` and set `GATEWAY_TLS_DIR` to a host directory containing `fullchain.pem` and `privkey.pem`.
+TLS is off by default. Configure both `GATEWAY_TLS_CERT_FILE` and `GATEWAY_TLS_KEY_FILE` to make the Node gateway serve HTTPS. The pair is read only at startup. To run the packaged gateway with PostgreSQL, use `./scripts/compose-up.sh gateway up -d`; the host port remains loopback-only. For TLS, use `./scripts/compose-up.sh tls up -d` after setting `GATEWAY_TLS_DIR` to a host directory containing `fullchain.pem` and `privkey.pem`.
 
 ```bash
 curl -sS -H "Authorization: Bearer $GATEWAY_TOKEN" -H 'content-type: application/json' \
