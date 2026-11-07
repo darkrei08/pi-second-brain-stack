@@ -47,6 +47,10 @@ services:
       - PARSER_ENGINE_TIMEOUT_MS=${PARSER_ENGINE_TIMEOUT_MS:-60000}
     ports:
       - "127.0.0.1:${GATEWAY_HOST_PORT:-8080}:8080"
+    # The host-loopback model providers (CLIProxyAPI on 127.0.0.1:8317) are not
+    # reachable from inside the container without this alias.
+    extra_hosts:
+      - host.docker.internal:host-gateway
     volumes:
       - originals-data:/var/lib/second-brain/originals
     depends_on:

@@ -206,6 +206,48 @@ test('hardening: rejects credential URLs, plaintext off-host, and unprintable ke
   assert.equal(fetch.calls[1].url, 'https://api.example.test/v1/embeddings');
 });
 
+test('hardening: allows cleartext for the docker host gateway aliases only', async () => {
+  const fetch = createFetch({ body: embedderBody(['alpha one.']) });
+  const viaHostGateway = createOpenAICompatibleEmbedder({
+    fetch,
+    base_url: 'http://host.docker.internal:8317/v1',
+    allowed_hosts: ['host.docker.internal']
+  });
+  await viaHostGateway({ model_id: modelId, dimensions: 3, inputs: ['alpha one.'] });
+  assert.equal(fetch.calls[0].url, 'http://host.docker.internal:8317/v1/embeddings');
+
+  const viaGatewayAlias = createOpenAICompatibleEmbedder({
+    fetch,
+    base_url: 'http://gateway.docker.internal:8317/v1',
+    allowed_hosts: ['gateway.docker.internal'],
+    api_key: apiKey
+  });
+  await viaGatewayAlias({ model_id: modelId, dimensions: 3, inputs: ['alpha one.'] });
+  assert.equal(fetch.calls[1].url, 'http://gateway.docker.internal:8317/v1/embeddings');
+
+  const cleartext = /must use https unless the host is loopback or a docker host gateway alias/;
+  assert.throws(
+    () => createOpenAICompatibleEmbedder({
+      fetch,
+      base_url: 'http://embeddings.example.test/v1',
+      allowed_hosts: ['embeddings.example.test']
+    }),
+    cleartext
+  );
+  assert.throws(
+    () => createOpenAICompatibleEmbedder({
+      fetch,
+      base_url: 'http://host.docker.internal.evil.test:8317/v1',
+      allowed_hosts: ['host.docker.internal.evil.test']
+    }),
+    cleartext
+  );
+  assert.throws(
+    () => createOpenAICompatibleEmbedder({ fetch, base_url: 'http://host.docker.internal:8317/v1', allowed_hosts: [] }),
+    /provider host host.docker.internal is not allowed; set EMBEDDING_ALLOWED_HOSTS/
+  );
+});
+
 test('hardening: transport failures and index defects fail closed', async () => {
   const inputs = ['alpha one.'];
   const timedOut = createOpenAICompatibleEmbedder({

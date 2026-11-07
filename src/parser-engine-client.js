@@ -4,6 +4,7 @@ const PARSER_TYPES = new Set(['docling', 'mineru', 'paddleocr']);
 const LOOPBACK_HOSTS = new Set(['localhost', '[::1]', '::1', '::ffff:127.0.0.1']);
 const LOOPBACK_IPV4_PATTERN = /^127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/;
 const LOOPBACK_MAPPED_IPV4_PATTERN = /^\[::ffff:127\.\d{1,3}\.\d{1,3}\.\d{1,3}\]$/;
+const HOST_GATEWAY_HOSTS = new Set(['host.docker.internal', 'gateway.docker.internal']);
 
 function requireNonEmptyText(value, name) {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -24,6 +25,10 @@ function isLoopbackHostname(hostname) {
     LOOPBACK_MAPPED_IPV4_PATTERN.test(normalized);
 }
 
+function isHostGatewayHostname(hostname) {
+  return HOST_GATEWAY_HOSTS.has(hostname.toLowerCase().replace(/\.$/, ''));
+}
+
 function resolveEndpoint(base_url, allowed_hosts = []) {
   requireNonEmptyText(base_url, 'base_url');
   let url;
@@ -39,8 +44,8 @@ function resolveEndpoint(base_url, allowed_hosts = []) {
     throw new TypeError('base_url must not contain credentials');
   }
   // Uploaded documents must never travel in cleartext off this host.
-  if (url.protocol === 'http:' && !isLoopbackHostname(url.hostname)) {
-    throw new TypeError('base_url must use https unless the host is loopback');
+  if (url.protocol === 'http:' && !isLoopbackHostname(url.hostname) && !isHostGatewayHostname(url.hostname)) {
+    throw new TypeError('base_url must use https unless the host is loopback or a docker host gateway alias');
   }
   const hostname = url.hostname.toLowerCase().replace(/\.$/u, '');
   if (!isLoopbackHostname(hostname) && !allowed_hosts.some((host) => host.toLowerCase().replace(/\.$/u, '') === hostname)) {

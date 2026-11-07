@@ -60,6 +60,47 @@ test('refuses a host outside the allowlist before connecting', async () => {
   assert.doesNotThrow(() => createParserEngine({ base_url: 'https://parser.example.com', allowed_hosts: ['parser.example.com'], fetch }));
 });
 
+test('allows cleartext for the docker host gateway aliases only', async () => {
+  const calls = [];
+  const fetch = async (url, init) => {
+    calls.push({ url, init });
+    return jsonResponse({ document: { json_content: raw_json }, status: 'success' });
+  };
+  const viaHostGateway = createParserEngine({
+    base_url: 'http://host.docker.internal:5001',
+    allowed_hosts: ['host.docker.internal'],
+    fetch
+  });
+  await viaHostGateway({ filename: 'report.pdf', content_base64: 'JVBERi0xLjQK' });
+  assert.equal(calls[0].url, 'http://host.docker.internal:5001/v1/convert/source');
+
+  const viaGatewayAlias = createParserEngine({
+    base_url: 'http://gateway.docker.internal:5001',
+    allowed_hosts: ['gateway.docker.internal'],
+    fetch
+  });
+  await viaGatewayAlias({ filename: 'report.pdf', content_base64: 'JVBERi0xLjQK' });
+  assert.equal(calls[1].url, 'http://gateway.docker.internal:5001/v1/convert/source');
+
+  const cleartext = /must use https unless the host is loopback or a docker host gateway alias/;
+  assert.throws(
+    () => createParserEngine({ base_url: 'http://parser.example.com', allowed_hosts: ['parser.example.com'], fetch }),
+    cleartext
+  );
+  assert.throws(
+    () => createParserEngine({
+      base_url: 'http://host.docker.internal.evil.example:5001',
+      allowed_hosts: ['host.docker.internal.evil.example'],
+      fetch
+    }),
+    cleartext
+  );
+  assert.throws(
+    () => createParserEngine({ base_url: 'http://host.docker.internal:5001', allowed_hosts: [], fetch }),
+    /provider host host.docker.internal is not allowed; set PARSER_ENGINE_ALLOWED_HOSTS/
+  );
+});
+
 test('bounds the engine call with a timeout', async () => {
   const parse = createParserEngine({
     base_url,

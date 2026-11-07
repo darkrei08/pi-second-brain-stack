@@ -91,6 +91,48 @@ test('refuses a non-loopback cleartext endpoint and a malformed configuration', 
   assert.throws(() => createOpenAICompatibleChat({ base_url: 'http://127.0.0.1/v1', fetch, timeout_ms: 0 }), /timeout_ms/);
 });
 
+test('allows cleartext for the docker host gateway aliases', async () => {
+  const calls = [];
+  const fetch = respondWith({ choices: [{ message: { content: 'ok' } }] }, { capture: (url) => calls.push(url) });
+  const viaHostGateway = createOpenAICompatibleChat({
+    base_url: 'http://host.docker.internal:8317/v1',
+    allowed_hosts: ['host.docker.internal'],
+    fetch
+  });
+  assert.equal(await viaHostGateway({ model_id: 'synthetic-chat', messages }), 'ok');
+  assert.equal(calls[0], 'http://host.docker.internal:8317/v1/chat/completions');
+
+  const viaGatewayAlias = createOpenAICompatibleChat({
+    base_url: 'http://Gateway.Docker.Internal:8317/v1',
+    allowed_hosts: ['gateway.docker.internal'],
+    fetch,
+    api_key: 'synthetic-key'
+  });
+  assert.equal(await viaGatewayAlias({ model_id: 'synthetic-chat', messages }), 'ok');
+  assert.equal(calls[1], 'http://gateway.docker.internal:8317/v1/chat/completions');
+});
+
+test('still refuses cleartext for every other host, allowlisted or not', () => {
+  const fetch = respondWith({ choices: [{ message: { content: 'ok' } }] });
+  const cleartext = /must use https unless the host is loopback or a docker host gateway alias/;
+  assert.throws(
+    () => createOpenAICompatibleChat({ base_url: 'http://models.example.com/v1', allowed_hosts: ['models.example.com'], fetch }),
+    cleartext
+  );
+  assert.throws(
+    () => createOpenAICompatibleChat({
+      base_url: 'http://host.docker.internal.evil.example:8317/v1',
+      allowed_hosts: ['host.docker.internal.evil.example'],
+      fetch
+    }),
+    cleartext
+  );
+  assert.throws(
+    () => createOpenAICompatibleChat({ base_url: 'http://host.docker.internal:8317/v1', fetch }),
+    /provider host host.docker.internal is not allowed; set ANSWER_ALLOWED_HOSTS/
+  );
+});
+
 test('rejects malformed input before calling the provider', async () => {
   let called = false;
   const chat = createOpenAICompatibleChat({

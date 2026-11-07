@@ -51,13 +51,22 @@ Both providers are provider-neutral and configured by URL. A missing endpoint is
 | --- | --- | --- | --- |
 | `ANSWER_BASE_URL` | unset | no | OpenAI-compatible base URL for grounded answers. Unset disables answers with `503`. |
 | `ANSWER_MODEL` | unset | no | Model name sent to that endpoint. |
-| `ANSWER_API_KEY` | unset | no | Secret. Blank is correct for a local provider. |
+| `ANSWER_API_KEY` | unset | no | Secret. Blank is correct for a local provider that authenticates nothing; CLIProxyAPI requires a bearer key. |
 | `ANSWER_ALLOWED_HOSTS` | loopback only | no | Comma-separated hostnames the answer endpoint may reach. Any other host is refused before a connection is opened. |
 | `EMBEDDING_BASE_URL` | unset | no | OpenAI-compatible base URL for embeddings. Unset forces lexical retrieval. |
 | `EMBEDDING_API_KEY` | unset | no | Secret. Blank is correct for a local provider. |
 | `EMBEDDING_ALLOWED_HOSTS` | loopback only | no | Comma-separated hostnames the embedding endpoint may reach, refused before connecting otherwise. |
 
 The allowlists are the SSRF boundary. Loopback is always permitted so a local runtime needs no configuration. Anything off-host must be named explicitly.
+
+Cleartext `http://` is refused unless the host is loopback or one of the Docker host-gateway aliases, `host.docker.internal` and `gateway.docker.internal`. Those two are aliases, not allowlist entries: the host still has to appear in `ANSWER_ALLOWED_HOSTS`, and every other host name still requires `https`, allowlisted or not. The gateway service declares `extra_hosts: host.docker.internal:host-gateway`, because `127.0.0.1` inside the container is the container itself. That alias is how the gateway reaches a proxy on the host, for example CLIProxyAPI on `127.0.0.1:8317`:
+
+```bash
+ANSWER_BASE_URL=http://host.docker.internal:8317/v1
+ANSWER_ALLOWED_HOSTS=host.docker.internal
+```
+
+Without `extra_hosts` the name does not resolve and the model call fails with `Network is unreachable`, which is a different failure from a refused host: the allowlist check happens before any connection is opened.
 
 ## Parser engine
 
