@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from ipaddress import ip_address
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
@@ -29,11 +30,20 @@ class GatewayError(RuntimeError):
 def _gateway_url(base_url, route):
     if not isinstance(base_url, str) or not base_url.strip():
         raise GatewayError("gateway URL is required")
-    parsed = urlsplit(base_url)
-    if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise GatewayError("gateway URL must be an http(s) origin")
-    if parsed.scheme == "http" and parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
-        raise GatewayError("gateway HTTP URL must use loopback")
+    try:
+        parsed = urlsplit(base_url)
+        parsed.port
+    except ValueError:
+        raise GatewayError("gateway URL must be a valid origin") from None
+    host = parsed.hostname
+    try:
+        loopback = host is not None and (host.lower() == "localhost" or ip_address(host).is_loopback)
+    except ValueError:
+        loopback = host is not None and host.lower() == "localhost"
+    if (parsed.scheme not in {"http", "https"} or not host
+            or parsed.username or parsed.password or parsed.query or parsed.fragment
+            or (parsed.scheme != "https" and not loopback)):
+        raise GatewayError("gateway URL must be an HTTPS URL or loopback HTTP URL")
     return base_url.rstrip("/") + route
 
 
@@ -48,18 +58,29 @@ def _user_text(body):
         if isinstance(content, str) and content.strip():
             return content.strip()
         if isinstance(content, list):
-            parts = [part.get("text", "") for part in content if isinstance(part, dict) and isinstance(part.get("text"), str)]
+            parts = [
+                part.get("text", "")
+                for part in content
+                if isinstance(part, dict) and isinstance(part.get("text"), str)
+            ]
             text = "".join(parts).strip()
             if text:
                 return text
     raise GatewayError("a user question is required")
 
 
+def _user_id(user):
+    value = user.get("id") if isinstance(user, dict) else None
+    if not isinstance(value, str) or not value.strip():
+        raise GatewayError("Open WebUI user identity is required")
+    return value
+
+
 def _headers(token, shell_user_id):
     if not isinstance(token, str) or not token:
         raise GatewayError("gateway token is required")
     result = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-    if isinstance(shell_user_id, str) and shell_user_id:
+    if shell_user_id:
         result["x-shell-user-id"] = shell_user_id
     return result
 
@@ -130,10 +151,10 @@ class Filter:
         folder_id = body.get("folder_id")
         if folder_id is None:
             return body
-        if not isinstance(folder_id, str) or not folder_id.strip():
+        if not isinstance(folder_id, str) or not folder_id.strip() or folder_id != folder_id.strip():
             raise GatewayError("folder_id must be non-empty text")
+        shell_user_id = _user_id(__user__)
         question = _user_text(body)
-        shell_user_id = __user__.get("id") if isinstance(__user__, dict) else None
         result = await post_json(
             _gateway_url(self.valves.GATEWAY_URL, "/v1/retrieval/query"),
             self.valves.GATEWAY_TOKEN,
@@ -143,7 +164,10 @@ class Filter:
         )
         content = _evidence(result.get("matches"))
         messages = [message for message in body.get("messages", []) if not (
-            isinstance(message, dict) and message.get("role") == "system" and isinstance(message.get("content"), str) and message["content"].startswith(EVIDENCE_MARKER)
+            isinstance(message, dict)
+            and message.get("role") == "system"
+            and isinstance(message.get("content"), str)
+            and message["content"].startswith(EVIDENCE_MARKER)
         )]
         messages.insert(0, {"role": "system", "content": content})
         body["messages"] = messages
