@@ -28,6 +28,19 @@ class GatewayError(GlueError):
     pass
 
 
+def _cleartext_allowed(host):
+    """Cleartext may not leave the deployment: loopback or a compose service name."""
+    lowered = host.lower()
+    if lowered == "localhost":
+        return True
+    try:
+        return ip_address(lowered).is_loopback
+    except ValueError:
+        # A single label resolves only through the container's own DNS, so it
+        # names a compose service instead of a remote host.
+        return "." not in lowered and ":" not in lowered
+
+
 def _gateway_url(base_url, route):
     if not isinstance(base_url, str) or not base_url.strip():
         raise GatewayError("gateway URL is required")
@@ -37,14 +50,10 @@ def _gateway_url(base_url, route):
     except ValueError:
         raise GatewayError("gateway URL must be a valid origin") from None
     host = parsed.hostname
-    try:
-        loopback = host is not None and (host.lower() == "localhost" or ip_address(host).is_loopback)
-    except ValueError:
-        loopback = host is not None and host.lower() == "localhost"
     if (parsed.scheme not in {"http", "https"} or not host
             or parsed.username or parsed.password or parsed.query or parsed.fragment
-            or (parsed.scheme != "https" and not loopback)):
-        raise GatewayError("gateway URL must be an HTTPS URL or loopback HTTP URL")
+            or (parsed.scheme != "https" and not _cleartext_allowed(host))):
+        raise GatewayError("gateway URL must be an HTTPS URL or an internal HTTP URL")
     return base_url.rstrip("/") + route
 
 

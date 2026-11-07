@@ -74,7 +74,7 @@ The route accepts `application/pdf`, `image/png`, `image/jpeg`, `image/tiff`, an
 | --- | --- | --- | --- |
 | `WEBUI_HOST_PORT` | `3300` | no | Loopback host port for the shell. |
 | `WEBUI_SECRET_KEY` | none | yes | Secret, generated on first start. Keeps Open WebUI sessions stable across restarts. |
-| `GATEWAY_URL` | `http://gateway:8080` | no | Gateway base URL written into the plugin valves at bootstrap. Inside compose this is the service name, not loopback. |
+| `GATEWAY_URL` | `http://gateway:8080` | no | Gateway base URL written into the plugin valves at bootstrap. Inside compose this is the service name, not loopback; the plugins accept cleartext only for loopback, `localhost`, or a single-label service name, and require HTTPS for any dotted name or non-loopback IP. |
 
 ## TLS
 

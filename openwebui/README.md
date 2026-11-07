@@ -14,7 +14,10 @@ vendor Open WebUI source or change the licence position of the image.
 
 Both plugins require these admin Valves:
 
-- `GATEWAY_URL`: the gateway base URL (`http://127.0.0.1:8080` for loopback, or HTTPS remotely)
+- `GATEWAY_URL`: the gateway base URL. Cleartext HTTP is accepted only where it
+  cannot leave the deployment: loopback (`http://127.0.0.1:8080`), a single-label
+  compose service name (`http://gateway:8080`, the compose default), or `localhost`.
+  Any dotted name or non-loopback IP must use HTTPS.
 - `GATEWAY_TOKEN`: the gateway bearer token
 
 `bootstrap.py` reads those values from the runtime environment and stores them

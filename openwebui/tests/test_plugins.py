@@ -94,6 +94,21 @@ class FilterTests(unittest.IsolatedAsyncioTestCase):
                 {"id": "shell-user-alpha"},
             )
 
+    async def test_inlet_reaches_the_compose_gateway_but_refuses_a_remote_cleartext_host(self):
+        plugin = self.make_filter()
+        body = {"folder_id": "folder-alpha", "messages": [{"role": "user", "content": "q"}]}
+        response = {"matches": [{"source_label": "1", "text": "evidence"}]}
+
+        plugin.valves.GATEWAY_URL = "http://gateway:8080"
+        with patch.object(FILTER_MODULE, "post_json", new=AsyncMock(return_value=response)) as post:
+            await plugin.inlet(body, {"id": "shell-user-alpha"})
+        self.assertEqual(post.await_args.args[0], "http://gateway:8080/v1/retrieval/query")
+
+        for refused in ("http://gateway.example:8080", "http://10.0.0.5:8080"):
+            plugin.valves.GATEWAY_URL = refused
+            with self.assertRaisesRegex(FILTER_MODULE.GatewayError, "HTTPS"):
+                await plugin.inlet(body, {"id": "shell-user-alpha"})
+
     async def test_inlet_masks_gateway_failure_and_never_logs_token(self):
         plugin = self.make_filter()
         failure = FILTER_MODULE.GatewayError("gateway request failed")
@@ -200,6 +215,26 @@ class PipeTests(unittest.IsolatedAsyncioTestCase):
                     {"id": "shell-user-beta"},
                 )
         self.assertNotIn("fixture-token", str(raised.exception))
+
+    async def test_pipe_reaches_the_compose_gateway_but_refuses_a_remote_cleartext_host(self):
+        plugin = self.make_pipe()
+        answer = {"answer": "safe answer", "citations": [], "uncertainty": {"level": "unsupported"}}
+
+        plugin.valves.GATEWAY_URL = "http://gateway:8080"
+        with patch.object(PIPE_MODULE, "post_json", new=AsyncMock(return_value=answer)) as post:
+            await plugin.pipe(
+                {"messages": [{"role": "user", "content": "question"}]},
+                {"id": "shell-user-beta"},
+            )
+        self.assertEqual(post.await_args.args[0], "http://gateway:8080/v1/answers")
+
+        for refused in ("http://gateway.example:8080", "http://10.0.0.5:8080"):
+            plugin.valves.GATEWAY_URL = refused
+            with self.assertRaisesRegex(PIPE_MODULE.GatewayError, "HTTPS"):
+                await plugin.pipe(
+                    {"messages": [{"role": "user", "content": "question"}]},
+                    {"id": "shell-user-beta"},
+                )
 
     async def test_modules_do_not_log_or_embed_fixture_token_in_output(self):
         plugin = self.make_pipe()
