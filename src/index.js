@@ -1,3 +1,4 @@
+export { applyMigrations, listMigrationFiles, selectPending } from './migrations.js';
 export { createStorage } from './postgres-store.js';
 export { segmentDocument } from './segment-document.js';
 export { normalizeParserOutput } from './parser-adapter.js';
@@ -5,5 +6,8 @@ export { resolveCitations } from './citation-resolver.js';
 export { runEmbeddingBackfill } from './embedding-backfill.js';
 export { createOpenAICompatibleEmbedder } from './embedding-client.js';
 export { describeRetrievalMode } from './retrieval-mode.js';
-export { answerQuestion } from './answer-question.js';
+export { answerQuestion, researchQuestion } from './answer-question.js';
+export { ingestDirectory } from './ingest-directory.js';
 export { createOpenAICompatibleChat } from './chat-client.js';
+export { createParserEngine } from './parser-engine-client.js';
+export { createGraphProjection } from './graph-projection.js';
