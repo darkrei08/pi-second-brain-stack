@@ -1,0 +1,84 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R 7 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 9 0 R >> >> /Contents 4 0 R >>
+endobj
+4 0 obj
+<< /Length 614 >>
+stream
+BT
+/F1 12 Tf
+16 TL
+72 760 Td
+(Second Brain multi-page parser fixture, page one of three.) Tj T*
+(This page proves that the parser walks past the first page boundary and records page one content.) Tj T*
+(Alpha paragraph: the local owner keeps invoices, contracts and retention notes in a private corpus.) Tj T*
+(The quick brown fox jumps over the lazy dog while the gateway token stays on loopback.) Tj T*
+(Page one reference code is ALPHA-PAGE-ONE-2049 and it appears nowhere else in this document.) Tj T*
+(Every line here is ordinary text so the engine extracts it without optical character recognition.) Tj T*
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 9 0 R >> >> /Contents 6 0 R >>
+endobj
+6 0 obj
+<< /Length 609 >>
+stream
+BT
+/F1 12 Tf
+16 TL
+72 760 Td
+(Second Brain multi-page parser fixture, page two of three.) Tj T*
+(This page proves that the parser continues after the first page and records page two content.) Tj T*
+(Beta paragraph: contracts renew each quarter and the retention policy keeps active rows only.) Tj T*
+(A different sentence about warehouse receipts, shipping notes and signed delivery records follows.) Tj T*
+(Page two reference code is BETA-PAGE-TWO-3310 and it appears nowhere else in this document.) Tj T*
+(The engine should place these lines on page two with bounding boxes measured from the page.) Tj T*
+ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 9 0 R >> >> /Contents 8 0 R >>
+endobj
+8 0 obj
+<< /Length 606 >>
+stream
+BT
+/F1 12 Tf
+16 TL
+72 760 Td
+(Second Brain multi-page parser fixture, page three of three.) Tj T*
+(This page proves that the parser reaches the last page and records page three content.) Tj T*
+(Gamma paragraph: the final audit trail names a retention window and a review date for the owner.) Tj T*
+(Closing sentence about quarterly reconciliation, archived receipts and the signed summary letter.) Tj T*
+(Page three unique marker zebrafinch7731 identifies the final page in retrieval results.) Tj T*
+(If retrieval returns this marker, every page of the document was extracted, not only the first.) Tj T*
+ET
+endstream
+endobj
+9 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000127 00000 n 
+0000000253 00000 n 
+0000000918 00000 n 
+0000001044 00000 n 
+0000001704 00000 n 
+0000001830 00000 n 
+0000002487 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R >>
+startxref
+2584
+%%EOF

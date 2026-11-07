@@ -27,7 +27,29 @@ test('normalizes synthetic Docling bottom-left geometry and Unicode spans', () =
       pages: [{ page_no: 1, width: 200, height: 100 }],
       texts: [{
         text: 'Città 😊',
-        prov: [{ page_no: 1, bbox: [20, 20, 120, 60], coord_origin: 'BOTTOMLEFT' }]
+        prov: [{ page_no: 1, bbox: [20, 60, 120, 20], coord_origin: 'BOTTOMLEFT' }]
+      }]
+    }
+  });
+
+  assertNormalized(result, 'Città 😊', {
+    text: 'Città 😊',
+    start_offset: 0,
+    end_offset: 7,
+    page: 1,
+    bounding_box: [0.1, 0.4, 0.6, 0.8]
+  });
+});
+
+test('normalizes a Docling document that exports pages as a page map', () => {
+  const result = normalizeParserOutput({
+    parser_type: 'docling',
+    envelope,
+    raw_json: {
+      pages: { 1: { page_no: 1, size: { width: 200, height: 100 }, image: null } },
+      texts: [{
+        text: 'Città 😊',
+        prov: [{ page_no: 1, bbox: { l: 20, t: 60, r: 120, b: 20, coord_origin: 'BOTTOMLEFT' } }]
       }]
     }
   });

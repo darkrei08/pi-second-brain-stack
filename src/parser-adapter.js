@@ -54,10 +54,22 @@ function pageDimensions(page, name) {
   return { width, height };
 }
 
+function pageEntries(rawPages) {
+  if (Array.isArray(rawPages)) return rawPages;
+  requireObject(rawPages, 'raw_json.pages');
+  // Docling exports pages as a map keyed by one-based page number.
+  return Object.entries(rawPages).map(([key, page]) => {
+    const page_no = Number(key);
+    if (!Number.isInteger(page_no) || page_no < 1) fail('raw_json.pages is invalid');
+    return page !== null && typeof page === 'object' ? { ...page, page_no: page.page_no ?? page_no } : page;
+  });
+}
+
 function pagesById(rawPages, parserType) {
-  requireArray(rawPages, 'raw_json.pages');
+  const entries = pageEntries(rawPages);
+  requireArray(entries, 'raw_json.pages');
   const pages = new Map();
-  for (const [index, rawPage] of rawPages.entries()) {
+  for (const [index, rawPage] of entries.entries()) {
     const dimensions = pageDimensions(rawPage, `raw_json.pages[${index}]`);
     let id;
     if (parserType === 'docling') id = rawPage.page_no ?? rawPage.page_number ?? rawPage.page ?? index + 1;
@@ -107,10 +119,10 @@ function validateBox([left, top, right, bottom], maxWidth, maxHeight, name) {
 function normalizeDoclingBox(value, page, origin, name) {
   if (value === undefined || value === null) return null;
   if (origin !== 'BOTTOMLEFT' && origin !== 'TOPLEFT') fail(`${name}.coord_origin is invalid`);
-  const [left, y1, right, y2] = boxValues(value, `${name}.bbox`);
-  validateBox([left, y1, right, y2], page.width, page.height, `${name}.bbox`);
-  const top = origin === 'BOTTOMLEFT' ? page.height - y2 : y1;
-  const bottom = origin === 'BOTTOMLEFT' ? page.height - y1 : y2;
+  const [left, t, right, b] = boxValues(value, `${name}.bbox`);
+  const top = origin === 'BOTTOMLEFT' ? page.height - t : t;
+  const bottom = origin === 'BOTTOMLEFT' ? page.height - b : b;
+  validateBox([left, top, right, bottom], page.width, page.height, `${name}.bbox`);
   return [left / page.width, top / page.height, right / page.width, bottom / page.height];
 }
 
