@@ -15,12 +15,19 @@
   },
   "bin": {
     "segment-document": "./src/cli.js",
-    "second-brain-gateway": "./src/gateway-cli.js"
+    "second-brain-gateway": "./src/gateway-cli.js",
+    "ingest-directory": "./src/ingest-directory-cli.js"
   },
   "scripts": {
     "test": "node --test",
-    "test:integration": "node --test test/integration/postgres-store.test.js test/integration/gateway.test.js",
-    "start": "node src/gateway-cli.js"
+    "test:integration": "node --test test/integration/postgres-store.test.js test/integration/gateway.test.js test/integration/graph-projection.test.js",
+    "check:boundaries": "node scripts/check-boundaries.js",
+    "seed:env": "node scripts/seed-compose-env.mjs",
+    "compose:up": "bash scripts/compose-up.sh",
+    "migrate": "node scripts/migrate.mjs",
+    "start": "node src/gateway-cli.js",
+    "test:seed": "node --test scripts/seed-compose-env.test.mjs",
+    "test:smoke": "bash scripts/smoke-compose.sh"
   },
   "dependencies": {
     "pg": "^8.23.1"
