@@ -14,6 +14,13 @@ The first `scripts/compose-up.sh` command creates `.secrets/compose.env` with fr
 | `POSTGRES_HOST_PORT` | `55432` | no | Loopback host port for PostgreSQL. |
 | `DATABASE_URL` | composed | no | Built by the compose file from the four values above. Set it directly only when running the gateway outside compose. |
 
+On first start `scripts/compose-up.sh` copies `POSTGRES_HOST_PORT`,
+`GATEWAY_HOST_PORT` and `WEBUI_HOST_PORT` into `.secrets/compose.env`, taking each
+from the environment and falling back to the default above. That file is loaded
+last, so a pinned value wins over this one: to change a host port after the first
+start, edit `.secrets/compose.env` directly. The seed then reports
+`compose environment already exists; unchanged` and will not rewrite it.
+
 ## Gateway identity
 
 | Variable | Default | Required | Purpose |
