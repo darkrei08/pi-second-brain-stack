@@ -60,14 +60,22 @@ async function request(gateway, body, headers = auth) {
 test('maps a grounded OpenAI request to the configured answer model and streams the report last', async () => {
   const storage = answerableStorage();
   const calls = [];
+  const events = [];
   const gateway = createGatewayServer({
     storage,
     authenticator,
     answer_model: 'configured-chat',
-    chat: async (input) => {
+    audit: (event) => events.push(event),
+    chat: Object.assign(async (input) => {
       calls.push(input);
       return 'The invoice alpha is filed under the contract [1].';
-    }
+    }, {
+      async *stream(input) {
+        calls.push(input);
+        input.on_usage({ prompt_tokens: 4, completion_tokens: 5 });
+        yield 'The invoice alpha is filed under the contract [1].';
+      }
+    })
   });
   const response = await request(gateway, {
     model: 'client-model',
@@ -78,14 +86,107 @@ test('maps a grounded OpenAI request to the configured answer model and streams 
   await gateway.stop();
   assert.equal(response.status, 200);
   assert.match(response.headers['content-type'], /^text\/event-stream/u);
-  const groundingPosition = response.body.indexOf('event: grounding');
-  const donePosition = response.body.indexOf('data: [DONE]');
-  assert.ok(groundingPosition > response.body.indexOf('The invoice alpha'));
-  assert.ok(donePosition > groundingPosition);
+  const records = response.body.trim().split('\n\n');
+  assert.equal(records.length, 5);
+  assert.match(records[0], /delta.*role.*assistant/u);
+  assert.match(records[1], /delta.*The invoice alpha/u);
+  assert.match(records[2], /^event: grounding\ndata: /u);
+  assert.match(records[3], /finish_reason":"stop/u);
+  assert.equal(records[4], 'data: [DONE]');
   const grounding = JSON.parse(response.body.match(/event: grounding\ndata: (.+)\n/u)[1]);
   assert.equal(grounding.uncertainty.level, 'low');
   assert.equal(calls[0].model_id, 'configured-chat');
   assert.equal(calls[0].messages[1].content.includes('Where is invoice alpha?'), true);
+  const modelEvent = events.find((event) => event.event === 'model_call');
+  assert.equal(modelEvent.prompt_tokens, 4);
+  assert.equal(modelEvent.completion_tokens, 5);
+});
+
+test('sends a provider-shaped error frame when streaming fails after deltas started', async () => {
+  const gateway = createGatewayServer({
+    storage: answerableStorage(),
+    authenticator,
+    answer_model: 'configured-chat',
+    chat: Object.assign(async () => 'unused', {
+      async *stream() {
+        yield 'The invoice alpha is filed under the contract [1].';
+        throw new Error('chat request timed out');
+      }
+    })
+  });
+  const response = await request(gateway, {
+    model: 'client-model',
+    messages: [{ role: 'user', content: 'Where is invoice alpha?' }],
+    stream: true
+  });
+  await gateway.stop();
+  assert.equal(response.status, 200);
+  assert.equal(response.body.includes('data: {"error":{"code":"model_timeout","message":"chat request timed out"}}\n\n'), true);
+  assert.equal(response.body.includes('event: grounding'), false);
+  assert.equal(response.body.includes('"finish_reason":"stop"'), false);
+  assert.equal(response.body.includes('data: [DONE]'), false);
+});
+
+test('aborts the provider when the client disconnects during streaming', async () => {
+  let resolveAborted;
+  let abortObserved = false;
+  const aborted = new Promise((resolve) => { resolveAborted = resolve; });
+  const gateway = createGatewayServer({
+    storage: answerableStorage(),
+    authenticator,
+    answer_model: 'configured-chat',
+    chat: Object.assign(async () => 'unused', {
+      async *stream({ signal }) {
+        yield 'The invoice alpha is filed under the contract [1].';
+        await new Promise((resolve) => {
+          if (signal.aborted) {
+            abortObserved = true;
+            resolveAborted();
+            resolve();
+            return;
+          }
+          signal.addEventListener('abort', () => {
+            abortObserved = true;
+            resolveAborted();
+            resolve();
+          }, { once: true });
+        });
+      }
+    })
+  });
+  try {
+    const { port } = await gateway.start({ port: 0 });
+    await new Promise((resolve, reject) => {
+      const client = httpRequest({
+        host: '127.0.0.1',
+        port,
+        path: '/v1/chat/completions',
+        method: 'POST',
+        headers: { ...auth, 'content-type': 'application/json' }
+      }, (response) => {
+        response.once('data', () => {
+          client.destroy();
+          resolve();
+        });
+        response.on('error', () => {});
+      });
+      client.on('error', (error) => {
+        if (error.code !== 'ECONNRESET') reject(error);
+      });
+      client.end(JSON.stringify({
+        model: 'client-model',
+        messages: [{ role: 'user', content: 'Where is invoice alpha?' }],
+        stream: true
+      }));
+    });
+    await Promise.race([
+      aborted,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('provider was not aborted')), 100))
+    ]);
+  } finally {
+    await gateway.stop();
+  }
+  assert.equal(abortObserved, true);
 });
 
 test('returns a normal completion and does not call the model without evidence', async () => {

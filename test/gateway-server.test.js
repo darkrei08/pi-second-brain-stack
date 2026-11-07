@@ -9,7 +9,7 @@ import { segmentDocument } from '../src/index.js';
 const token = 'a'.repeat(32);
 const authenticator = createAuthenticator({
   token,
-  owner_id: 'operator-owner',
+  owner_id: 'owner-one',
   shell_users: { 'shell-one': 'owner-one' }
 });
 const auth = { authorization: `Bearer ${token}`, 'x-shell-user-id': 'shell-one' };
@@ -172,6 +172,89 @@ test('reports readiness from a real storage read', async () => {
   assert.equal(response.status, 503);
   assert.equal(response.body.error.code, 'not_ready');
   assert.equal(JSON.stringify(response.body).includes('ECONNREFUSED'), false);
+});
+
+test('probes the configured provider once within the readiness cache', async () => {
+  let probes = 0;
+  const gateway = withServer(createRecordingStorage(), {
+    chat: Object.assign(async () => 'unused', {
+      async probe(model_id) {
+        probes += 1;
+        assert.equal(model_id, 'synthetic-chat');
+      }
+    })
+  });
+  const first = await call(gateway, '/readyz', { headers: {} });
+  const second = await call(gateway, '/readyz', { headers: {} });
+  await gateway.stop();
+  assert.equal(first.status, 200);
+  assert.equal(second.status, 200);
+  assert.equal(probes, 1);
+
+  let failedProbes = 0;
+  const failing = withServer(createRecordingStorage(), {
+    chat: Object.assign(async () => 'unused', {
+      async probe() {
+        failedProbes += 1;
+        throw new Error('provider absent');
+      }
+    })
+  });
+  const failed = await call(failing, '/readyz', { headers: {} });
+  const cached = await call(failing, '/readyz', { headers: {} });
+  await failing.stop();
+  assert.equal(failed.status, 503);
+  assert.equal(cached.status, 503);
+  assert.equal(failedProbes, 1);
+});
+
+test('limits concurrent calls per model independently of owner quota', async () => {
+  let releaseFirst;
+  const firstCall = new Promise((resolve) => { releaseFirst = resolve; });
+  let calls = 0;
+  const gateway = withServer(answerableStorage(), {
+    max_model_concurrency: 1,
+    chat: async () => {
+      calls += 1;
+      if (calls === 1) await firstCall;
+      return 'answer [1].';
+    }
+  });
+  const first = call(gateway, '/v1/answers', { method: 'POST', body: { question: 'first' } });
+  await new Promise((resolve) => setImmediate(resolve));
+  const refused = await call(gateway, '/v1/answers', { method: 'POST', body: { question: 'second' } });
+  releaseFirst();
+  const completed = await first;
+  await gateway.stop();
+  assert.equal(completed.status, 200);
+  assert.equal(refused.status, 429);
+  assert.equal(refused.body.error.code, 'model_busy');
+  assert.equal(calls, 1);
+});
+
+test('records redacted provider-call telemetry with usage and isolates sink failures', async () => {
+  const events = [];
+  const gateway = withServer(answerableStorage(), {
+    audit: (event) => {
+      events.push(event);
+      if (event.event === 'model_call') throw new Error('sink unavailable');
+    },
+    chat: async (input) => {
+      input.on_usage({ prompt_tokens: 2, completion_tokens: 3 });
+      return 'The invoice alpha is filed under the contract [1].';
+    }
+  });
+  const response = await call(gateway, '/v1/answers', { method: 'POST', body: { question: 'private question' } });
+  await gateway.stop();
+  const modelEvent = events.find((event) => event.event === 'model_call');
+  assert.equal(response.status, 200);
+  assert.equal(modelEvent.kind, 'chat');
+  assert.equal(modelEvent.model_id, 'synthetic-chat');
+  assert.equal(modelEvent.owner_id, 'owner-one');
+  assert.equal(modelEvent.outcome, 'ok');
+  assert.equal(modelEvent.prompt_tokens, 2);
+  assert.equal(modelEvent.completion_tokens, 3);
+  assert.equal(JSON.stringify(modelEvent).includes('private question'), false);
 });
 
 test('authenticates every data route and refuses a caller-supplied owner', async () => {
@@ -638,4 +721,219 @@ test('maps a provider timeout and a provider failure to stable boundary errors',
   });
   const failed = await expectStatus(failing, '/v1/answers', { method: 'POST', body: { question: 'where?' } }, 502);
   assert.equal(failed.body.error.code, 'model_failed');
+});
+
+test('researches over planned follow-up evidence and reports provenance like an answer', async () => {
+  const storage = answerableStorage();
+  const chatCalls = [];
+  const gateway = withServer(storage, {
+    chat: async (input) => {
+      chatCalls.push(input);
+      return input.max_tokens === 128
+        ? JSON.stringify({ queries: ['invoice alpha contract'] })
+        : 'The invoice alpha is filed under the contract [1].';
+    }
+  });
+  const response = await call(gateway, '/v1/research', {
+    method: 'POST',
+    body: { question: 'where is the invoice alpha?', collection_ids: ['collection-alpha'] }
+  });
+  await gateway.stop();
+  assert.equal(response.status, 200, JSON.stringify(response.body));
+  assert.deepEqual(Object.keys(response.body).sort(), [
+    'answer',
+    'citations',
+    'retrieval',
+    'stale_citations',
+    'uncertainty',
+    'unresolved_citations'
+  ]);
+  assert.equal(response.body.answer, 'The invoice alpha is filed under the contract [1].');
+  assert.equal(response.body.citations.length, 1);
+  assert.deepEqual(response.body.stale_citations, []);
+  assert.equal(response.body.uncertainty.level, 'low');
+  assert.equal(chatCalls.length, 2, 'one planner call and one synthesis');
+  assert.equal(chatCalls[1].model_id, 'synthetic-chat');
+  const searches = storage.calls.filter(({ name }) => name === 'searchSegmentsLexical');
+  assert.deepEqual(searches.map(({ input }) => input.query), ['where is the invoice alpha?', 'invoice alpha contract']);
+  assert.ok(searches.every(({ input }) => input.owner_id === 'owner-one'));
+  assert.ok(searches.every(({ input }) => input.collection_ids[0] === 'collection-alpha'));
+});
+
+test('maps research validation and provider failures to stable boundary errors', async () => {
+  const gateway = withServer(answerableStorage(), { chat: async () => JSON.stringify({ queries: [] }) });
+  const invalidLimit = await expectStatus(gateway, '/v1/research', { method: 'POST', body: { question: 'where?', limit: 0 } }, 400);
+  assert.equal(invalidLimit.body.error.code, 'invalid_request');
+  const invalidTokens = await expectStatus(gateway, '/v1/research', { method: 'POST', body: { question: 'where?', max_tokens: 9000 } }, 400);
+  assert.equal(invalidTokens.body.error.code, 'invalid_request');
+  const missingQuestion = await expectStatus(gateway, '/v1/research', { method: 'POST', body: {} }, 400);
+  assert.equal(missingQuestion.body.error.code, 'invalid_request');
+  const forged = await expectStatus(
+    gateway,
+    '/v1/research',
+    { method: 'POST', body: { question: 'where?', owner_id: 'owner-two' } },
+    400
+  );
+  assert.equal(forged.body.error.code, 'invalid_request');
+
+  const unconfigured = withServer(answerableStorage(), { chat: undefined, answer_model: undefined });
+  const unavailable = await expectStatus(unconfigured, '/v1/research', { method: 'POST', body: { question: 'where?' } }, 503);
+  assert.equal(unavailable.body.error.code, 'answers_unavailable');
+
+  const failing = withServer(answerableStorage(), {
+    chat: async () => {
+      throw new Error('chat request failed with status 500');
+    }
+  });
+  const failed = await expectStatus(failing, '/v1/research', { method: 'POST', body: { question: 'where?' } }, 502);
+  assert.equal(failed.body.error.code, 'model_failed');
+
+  const timedOut = withServer(answerableStorage(), {
+    chat: async () => {
+      throw new Error('chat request timed out');
+    }
+  });
+  const timeout = await expectStatus(timedOut, '/v1/research', { method: 'POST', body: { question: 'where?' } }, 504);
+  assert.equal(timeout.body.error.code, 'model_timeout');
+});
+
+function collectionStorage(overrides = {}) {
+  const calls = [];
+  return {
+    calls,
+    async suggestDocumentCollections(input) {
+      calls.push({ name: 'suggestDocumentCollections', input });
+      return [{ collection_id: 'collection-alpha', score: 0.5, segment_id: 'urn:segment:a' }];
+    },
+    async moveDocumentCollection(input) {
+      calls.push({ name: 'moveDocumentCollection', input });
+      return input.collection_id;
+    },
+    async confirmDocumentCollections(input) {
+      calls.push({ name: 'confirmDocumentCollections', input });
+      return [...input.collection_ids].sort();
+    },
+    async listDocumentCollections(document_id, owner_id) {
+      calls.push({ name: 'listDocumentCollections', input: { document_id, owner_id } });
+      return ['collection-alpha'];
+    },
+    ...overrides
+  };
+}
+
+test('suggests, moves, and confirms document collections under the authenticated owner', async () => {
+  const storage = collectionStorage();
+  const gateway = withServer(storage);
+  const suggested = await call(gateway, '/v1/documents/collections/suggest', {
+    method: 'POST',
+    body: { document_id: 'urn:document:alpha', max_collections: 3 }
+  });
+  const moved = await call(gateway, '/v1/documents/collections/move', {
+    method: 'POST',
+    body: { document_id: 'urn:document:alpha', collection_id: 'collection-beta' }
+  });
+  const confirmed = await call(gateway, '/v1/documents/collections/confirm', {
+    method: 'POST',
+    body: { document_id: 'urn:document:alpha', collection_ids: ['collection-beta', 'collection-alpha'] }
+  });
+  await gateway.stop();
+
+  assert.equal(suggested.status, 200, JSON.stringify(suggested.body));
+  assert.deepEqual(suggested.body, {
+    document_id: 'urn:document:alpha',
+    candidates: [{ collection_id: 'collection-alpha', score: 0.5, segment_id: 'urn:segment:a' }]
+  });
+  assert.equal(moved.status, 200, JSON.stringify(moved.body));
+  assert.deepEqual(moved.body, { document_id: 'urn:document:alpha', collections: ['collection-alpha'] });
+  assert.equal(confirmed.status, 200, JSON.stringify(confirmed.body));
+  assert.deepEqual(confirmed.body, { document_id: 'urn:document:alpha', collections: ['collection-alpha', 'collection-beta'] });
+
+  const suggestCall = storage.calls.find(({ name }) => name === 'suggestDocumentCollections');
+  assert.deepEqual(suggestCall.input, { document_id: 'urn:document:alpha', owner_id: 'owner-one', max_collections: 3 });
+  const moveCall = storage.calls.find(({ name }) => name === 'moveDocumentCollection');
+  assert.deepEqual(moveCall.input, { document_id: 'urn:document:alpha', owner_id: 'owner-one', collection_id: 'collection-beta' });
+  const confirmCall = storage.calls.find(({ name }) => name === 'confirmDocumentCollections');
+  assert.deepEqual(confirmCall.input, {
+    document_id: 'urn:document:alpha',
+    owner_id: 'owner-one',
+    collection_ids: ['collection-beta', 'collection-alpha']
+  });
+});
+
+test('validates collection management requests and maps owner and collection failures', async () => {
+  const gateway = withServer(collectionStorage());
+  const badDocument = await expectStatus(
+    gateway,
+    '/v1/documents/collections/suggest',
+    { method: 'POST', body: { document_id: 'alpha' } },
+    400
+  );
+  assert.equal(badDocument.body.error.code, 'invalid_request');
+  const badMax = await expectStatus(
+    gateway,
+    '/v1/documents/collections/suggest',
+    { method: 'POST', body: { document_id: 'urn:document:alpha', max_collections: 0 } },
+    400
+  );
+  assert.equal(badMax.body.error.code, 'invalid_request');
+  const badCollection = await expectStatus(
+    gateway,
+    '/v1/documents/collections/move',
+    { method: 'POST', body: { document_id: 'urn:document:alpha', collection_id: '../alpha' } },
+    400
+  );
+  assert.equal(badCollection.body.error.code, 'invalid_request');
+  const emptyConfirm = await expectStatus(
+    gateway,
+    '/v1/documents/collections/confirm',
+    { method: 'POST', body: { document_id: 'urn:document:alpha', collection_ids: [] } },
+    400
+  );
+  assert.equal(emptyConfirm.body.error.code, 'invalid_request');
+  const forgedOwner = await expectStatus(
+    gateway,
+    '/v1/documents/collections/move',
+    { method: 'POST', body: { document_id: 'urn:document:alpha', collection_id: 'collection-beta', owner_id: 'owner-two' } },
+    400
+  );
+  assert.equal(forgedOwner.body.error.code, 'invalid_request');
+
+  const foreignCollection = withServer(collectionStorage({
+    async moveDocumentCollection() {
+      throw new Error('unknown or foreign collection for this owner');
+    }
+  }));
+  const refused = await expectStatus(
+    foreignCollection,
+    '/v1/documents/collections/move',
+    { method: 'POST', body: { document_id: 'urn:document:alpha', collection_id: 'collection-foreign' } },
+    400
+  );
+  assert.equal(refused.body.error.code, 'invalid_request');
+
+  const foreignDocument = withServer(collectionStorage({
+    async confirmDocumentCollections() {
+      throw new Error('document belongs to a different owner');
+    }
+  }));
+  const conflicted = await expectStatus(
+    foreignDocument,
+    '/v1/documents/collections/confirm',
+    { method: 'POST', body: { document_id: 'urn:document:alpha', collection_ids: ['collection-alpha'] } },
+    409
+  );
+  assert.equal(conflicted.body.error.code, 'conflict');
+
+  const missingDocument = withServer(collectionStorage({
+    async suggestDocumentCollections() {
+      throw new Error('document not found for this owner');
+    }
+  }));
+  const missing = await expectStatus(
+    missingDocument,
+    '/v1/documents/collections/suggest',
+    { method: 'POST', body: { document_id: 'urn:document:absent' } },
+    404
+  );
+  assert.equal(missing.body.error.code, 'not_found');
 });
