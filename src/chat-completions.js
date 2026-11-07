@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 
-const MAX_STREAM_CHUNK_CHARS = 128;
 const ROLES = new Set(['system', 'user', 'assistant']);
 
 function requireNonEmptyText(value, name) {
@@ -98,11 +97,8 @@ function writeEvent(response, payload, event) {
   return true;
 }
 
-export async function writeChatCompletionStream(response, { answer_model, result } = {}) {
+export function createChatCompletionStream(response, { answer_model } = {}) {
   requireNonEmptyText(answer_model, 'answer_model');
-  if (result === null || typeof result !== 'object') {
-    throw new TypeError('result must be an object');
-  }
   const id = completionId();
   const created = Math.floor(Date.now() / 1000);
   response.writeHead(200, {
@@ -111,20 +107,26 @@ export async function writeChatCompletionStream(response, { answer_model, result
     connection: 'keep-alive',
     'x-accel-buffering': 'no'
   });
-
-  if (!writeEvent(response, streamChunk({ id, answer_model, created, delta: { role: 'assistant' } }))) return false;
-  const characters = Array.from(result.answer);
-  for (let offset = 0; offset < characters.length; offset += MAX_STREAM_CHUNK_CHARS) {
-    if (!writeEvent(response, streamChunk({
-      id,
-      answer_model,
-      created,
-      delta: { content: characters.slice(offset, offset + MAX_STREAM_CHUNK_CHARS).join('') }
-    }))) return false;
-  }
-  if (!writeEvent(response, groundingFields(result), 'grounding')) return false;
-  if (!writeEvent(response, streamChunk({ id, answer_model, created, delta: {}, finish_reason: 'stop' }))) return false;
-  writeEvent(response, '[DONE]');
-  response.end();
-  return true;
+  const open = writeEvent(response, streamChunk({ id, answer_model, created, delta: { role: 'assistant' } }));
+  return {
+    writeDelta(content) {
+      if (!open) return false;
+      return writeEvent(response, streamChunk({ id, answer_model, created, delta: { content } }));
+    },
+    finish(result) {
+      if (!open || result === null || typeof result !== 'object') return false;
+      if (!writeEvent(response, groundingFields(result), 'grounding')) return false;
+      if (!writeEvent(response, streamChunk({ id, answer_model, created, delta: {}, finish_reason: 'stop' }))) return false;
+      if (!writeEvent(response, '[DONE]')) return false;
+      response.end();
+      return true;
+    },
+    fail(error) {
+      if (!open || !writeEvent(response, { error: error?.name === 'GatewayError' && typeof error.code === 'string'
+        ? { code: error.code, message: error.message }
+        : { code: 'internal_error', message: 'The request failed' } })) return false;
+      response.end();
+      return true;
+    }
+  };
 }
