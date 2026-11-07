@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createStorage, describeRetrievalMode, resolveCitations, runEmbeddingBackfill, segmentDocument } from '../../src/index.js';
+import { applyMigrations, createStorage, describeRetrievalMode, resolveCitations, runEmbeddingBackfill, segmentDocument } from '../../src/index.js';
 
 const databaseUrl = process.env.TEST_DATABASE_URL;
 const integrationTest = databaseUrl ? test : test.skip;
@@ -1183,7 +1183,7 @@ integrationTest('ingests a document into zero, one, or many collections of its o
   await removeCollections(ownerId);
 });
 
-integrationTest('fails closed on an unknown or foreign collection before any write', async () => {
+integrationTest('auto-creates an unknown collection and refuses a foreign collection', async () => {
   const storage = createStorage({ pool });
   await seedCollections(storage);
   const ownerId = collectionsOwnerA;
@@ -1192,18 +1192,15 @@ integrationTest('fails closed on an unknown or foreign collection before any wri
   ]);
   await removeDocument(target.document_id, ownerId);
 
-  await assert.rejects(
-    storage.saveDocumentAndSegments(target, segmentDocument({ ...target, text: 'invoice rejected' }, { max_segment_chars: 100 })),
-    /collection/
-  );
-  assert.equal(await storage.getDocumentWithSegments(target.document_id, ownerId), null);
+  await storage.saveDocumentAndSegments(target, segmentDocument({ ...target, text: 'invoice rejected' }, { max_segment_chars: 100 }));
+  assert.deepEqual(await storage.listDocumentCollections(target.document_id, ownerId), ['synthetic-collection-missing']);
 
-  const foreignTarget = { ...target, collections: [collectionForeign] };
+  const foreignTarget = { ...target, document_id: 'urn:document:collections-foreign-rejected', collections: [collectionForeign] };
   await assert.rejects(
     storage.saveDocumentAndSegments(foreignTarget, segmentDocument(foreignTarget, { max_segment_chars: 100 })),
     /collection/
   );
-  assert.equal(await storage.getDocumentWithSegments(target.document_id, ownerId), null);
+  assert.equal(await storage.getDocumentWithSegments(foreignTarget.document_id, ownerId), null);
 
   await assert.rejects(
     pool.query(
@@ -1212,6 +1209,7 @@ integrationTest('fails closed on an unknown or foreign collection before any wri
     ),
     /foreign key/
   );
+  await removeDocument(target.document_id, ownerId);
   await removeCollections(ownerId);
   await removeCollections(collectionsOwnerB);
 });
@@ -1415,4 +1413,361 @@ integrationTest('removes memberships when a document is deleted', async () => {
   const collections = await pool.query('SELECT count(*)::int AS count FROM collections WHERE owner_id = $1', [ownerId]);
   assert.equal(collections.rows[0].count, 2);
   await removeCollections(ownerId);
+});
+
+integrationTest('auto-creates declared collections and refuses foreign collections', async () => {
+  const storage = createStorage({ pool });
+  const ownerId = 'synthetic-auto-collection-owner';
+  const foreignOwnerId = 'synthetic-auto-collection-foreign';
+  const collectionId = 'synthetic-auto-collection';
+  const foreignCollectionId = 'synthetic-foreign-collection';
+  const autoDocument = {
+    ...document,
+    document_id: 'urn:document:postgres-auto-collection',
+    retention: { owner_id: ownerId, state: 'active' },
+    collections: [collectionId]
+  };
+  const foreignCollectionDocument = {
+    ...autoDocument,
+    document_id: 'urn:document:postgres-foreign-collection',
+    collections: [foreignCollectionId]
+  };
+
+  await removeDocument(autoDocument.document_id, ownerId);
+  await removeDocument(foreignCollectionDocument.document_id, ownerId);
+  await pool.query('DELETE FROM collections WHERE collection_id = ANY($1::text[])', [[collectionId, foreignCollectionId]]);
+  await storage.createCollection({ collection_id: foreignCollectionId, owner_id: foreignOwnerId, created_at: document.created_at });
+
+  await storage.saveDocumentAndSegments(autoDocument, segmentDocument(autoDocument, { max_segment_chars: 80 }));
+  assert.deepEqual(await storage.listDocumentCollections(autoDocument.document_id, ownerId), [collectionId]);
+  assert.deepEqual((await pool.query('SELECT owner_id FROM collections WHERE collection_id = $1', [collectionId])).rows, [{ owner_id: ownerId }]);
+  await assert.rejects(
+    storage.saveDocumentAndSegments(foreignCollectionDocument, segmentDocument(foreignCollectionDocument, { max_segment_chars: 80 })),
+    /unknown or foreign collection/
+  );
+  assert.equal(await storage.getDocumentWithSegments(foreignCollectionDocument.document_id, ownerId), null);
+
+  await removeDocument(autoDocument.document_id, ownerId);
+  await pool.query('DELETE FROM collections WHERE collection_id = ANY($1::text[])', [[collectionId, foreignCollectionId]]);
+});
+
+integrationTest('moves documents between retention states and purges owner-scoped rows with counts', async () => {
+  const storage = createStorage({ pool });
+  const ownerId = 'synthetic-retention-owner';
+  const foreignOwnerId = 'synthetic-retention-foreign';
+  const retentionDocument = {
+    ...semanticDocument,
+    document_id: 'urn:document:postgres-retention-lifecycle',
+    retention: { owner_id: ownerId, state: 'active' }
+  };
+  const retentionResult = segmentDocument(retentionDocument, { max_segment_chars: 100 });
+
+  await removeDocument(retentionDocument.document_id, ownerId);
+  await storage.saveDocumentAndSegments(retentionDocument, retentionResult);
+  await storage.saveSegmentEmbeddings({
+    document_id: retentionDocument.document_id,
+    owner_id: ownerId,
+    model_id: 'retention-3d',
+    dimensions: 3,
+    embeddings: retentionResult.segments.map((segment) => ({ segment_id: segment.id, embedding: [1, 0, 0] })),
+    created_at: retentionDocument.created_at
+  });
+
+  assert.equal(await storage.setDocumentRetention(retentionDocument.document_id, ownerId, 'tombstone'), 'tombstone');
+  assert.equal((await storage.getDocumentWithSegments(retentionDocument.document_id, ownerId)).retention.state, 'tombstone');
+  assert.equal(await storage.setDocumentRetention(retentionDocument.document_id, ownerId, 'active'), 'active');
+  assert.equal(await storage.setDocumentRetention(retentionDocument.document_id, foreignOwnerId, 'tombstone'), null);
+  await assert.rejects(storage.setDocumentRetention(retentionDocument.document_id, ownerId, 'purged'), /physically removed/);
+
+  await assert.rejects(storage.purgeDocument(retentionDocument.document_id, foreignOwnerId), /different owner/);
+  assert.deepEqual(await storage.purgeDocument(retentionDocument.document_id, ownerId), {
+    documents: 1,
+    segments: retentionResult.segments.length,
+    embeddings: retentionResult.segments.length
+  });
+  assert.deepEqual(await storage.purgeDocument(retentionDocument.document_id, ownerId), {
+    documents: 0,
+    segments: 0,
+    embeddings: 0
+  });
+});
+
+integrationTest('exports one owner corpus with collections, memberships, segments, and embedding metadata', async () => {
+  const storage = createStorage({ pool });
+  const ownerId = 'synthetic-export-owner';
+  const foreignOwnerId = 'synthetic-export-foreign';
+  const collectionId = 'synthetic-export-collection';
+  const exportedDocument = {
+    ...document,
+    document_id: 'urn:document:postgres-export-owner',
+    retention: { owner_id: ownerId, state: 'active' },
+    collections: [collectionId]
+  };
+  const foreignDocument = {
+    ...document,
+    document_id: 'urn:document:postgres-export-foreign',
+    retention: { owner_id: foreignOwnerId, state: 'active' }
+  };
+  const exportedResult = segmentDocument(exportedDocument, { max_segment_chars: 80 });
+
+  await Promise.all([
+    removeDocument(exportedDocument.document_id, ownerId),
+    removeDocument(foreignDocument.document_id, foreignOwnerId)
+  ]);
+  await pool.query('DELETE FROM collections WHERE collection_id = $1', [collectionId]);
+  await storage.saveDocumentAndSegments(exportedDocument, exportedResult);
+  await storage.saveDocumentAndSegments(foreignDocument, segmentDocument(foreignDocument, { max_segment_chars: 80 }));
+  await storage.saveSegmentEmbeddings({
+    document_id: exportedDocument.document_id,
+    owner_id: ownerId,
+    model_id: 'export-3d',
+    dimensions: 3,
+    embeddings: [{ segment_id: exportedResult.segments[0].id, embedding: [1, 0, 0] }],
+    created_at: exportedDocument.created_at
+  });
+
+  await storage.setDocumentRetention(exportedDocument.document_id, ownerId, 'tombstone');
+  const exported = await storage.exportOwner(ownerId);
+  assert.equal(exported.owner_id, ownerId);
+  assert.deepEqual(exported.collections.map(({ collection_id, owner_id }) => ({ collection_id, owner_id })), [{ collection_id: collectionId, owner_id: ownerId }]);
+  assert.equal(exported.documents.length, 1);
+  assert.deepEqual(exported.documents[0], {
+    document_id: exportedDocument.document_id,
+    text: exportedDocument.text,
+    source_label: exportedDocument.source_label,
+    source_hash: exportedDocument.source_hash,
+    lineage: exportedDocument.lineage,
+    created_at: exportedDocument.created_at,
+    retention: { owner_id: ownerId, state: 'tombstone' },
+    collection_ids: [collectionId],
+    segments: exportedResult.segments.map((segment) => ({
+      ...segment,
+      embedding_metadata: [{ model_id: 'export-3d', dimensions: 3 }]
+    }))
+  });
+
+  await removeDocument(exportedDocument.document_id, ownerId);
+  await removeDocument(foreignDocument.document_id, foreignOwnerId);
+  await pool.query('DELETE FROM collections WHERE collection_id = $1', [collectionId]);
+});
+
+integrationTest('applies migrations once and makes the second run a no-op', async () => {
+  const client = await pool.connect();
+  try {
+    await applyMigrations(client);
+    assert.deepEqual(await applyMigrations(client), []);
+    const recorded = await client.query('SELECT version FROM schema_migrations ORDER BY version');
+    assert.deepEqual(recorded.rows.map(({ version }) => version), [
+      '001-extensions.sql',
+      '002-schema.sql',
+      '003-segment-embeddings.sql',
+      '004-embedding-models.sql',
+      '005-collections.sql',
+      '006-graph-projection.sql'
+    ]);
+  } finally {
+    client.release();
+  }
+});
+
+integrationTest('suggests document collections from the document content within one owner boundary', async () => {
+  const storage = createStorage({ pool });
+  await seedCollections(storage);
+
+  const candidates = await storage.suggestDocumentCollections({
+    document_id: collectionsUnscopedDocument.document_id,
+    owner_id: collectionsOwnerA,
+    max_collections: 5
+  });
+  const ownedCollections = (await pool.query('SELECT collection_id FROM collections WHERE owner_id = $1', [collectionsOwnerA]))
+    .rows.map(({ collection_id }) => collection_id);
+  assert.ok(candidates.length > 0);
+  assert.ok(candidates.every(({ collection_id }) => ownedCollections.includes(collection_id)));
+  assert.ok(candidates.some(({ collection_id }) => collection_id === collectionAlpha));
+  assert.ok(candidates.some(({ collection_id }) => collection_id === collectionBeta));
+  assert.ok(!candidates.some(({ collection_id }) => collection_id === collectionForeign));
+  assert.ok(candidates.every(({ segment_id }) => typeof segment_id === 'string'));
+  const scores = candidates.map(({ score }) => score);
+  assert.deepEqual(scores, [...scores].sort((left, right) => right - left));
+
+  const capped = await storage.suggestDocumentCollections({
+    document_id: collectionsUnscopedDocument.document_id,
+    owner_id: collectionsOwnerA,
+    max_collections: 1
+  });
+  assert.equal(capped.length, 1);
+
+  // The same document is invisible to another owner, so nothing is suggested from it.
+  assert.deepEqual(
+    await storage.suggestDocumentCollections({ document_id: collectionsUnscopedDocument.document_id, owner_id: collectionsOwnerB }),
+    []
+  );
+  assert.deepEqual(
+    await storage.suggestDocumentCollections({ document_id: collectionsForeignDocument.document_id, owner_id: collectionsOwnerA }),
+    []
+  );
+  await removeCollections(collectionsOwnerA);
+  await removeCollections(collectionsOwnerB);
+});
+
+integrationTest('moves a document to one collection atomically and refuses a foreign collection', async () => {
+  const storage = createStorage({ pool });
+  await seedCollections(storage);
+
+  assert.equal(
+    await storage.moveDocumentCollection({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerA,
+      collection_id: collectionBeta
+    }),
+    collectionBeta
+  );
+  assert.deepEqual(await storage.listDocumentCollections(collectionsAlphaDocument.document_id, collectionsOwnerA), [collectionBeta]);
+
+  // A concurrent reader holds the document row, so it sees the old membership only: never both, never none.
+  const holder = await pool.connect();
+  try {
+    await holder.query('BEGIN');
+    await holder.query('SELECT document_id FROM documents WHERE document_id = $1 FOR UPDATE', [collectionsAlphaDocument.document_id]);
+    let moved = false;
+    const pending = storage.moveDocumentCollection({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerA,
+      collection_id: collectionAlpha
+    }).then(() => {
+      moved = true;
+    });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    assert.equal(moved, false, 'the move must wait for the row lock');
+    assert.deepEqual(await storage.listDocumentCollections(collectionsAlphaDocument.document_id, collectionsOwnerA), [collectionBeta]);
+    await holder.query('COMMIT');
+    await pending;
+    assert.deepEqual(await storage.listDocumentCollections(collectionsAlphaDocument.document_id, collectionsOwnerA), [collectionAlpha]);
+  } finally {
+    holder.release();
+  }
+
+  await assert.rejects(
+    storage.moveDocumentCollection({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerA,
+      collection_id: collectionForeign
+    }),
+    /unknown or foreign collection/
+  );
+  assert.deepEqual(await storage.listDocumentCollections(collectionsAlphaDocument.document_id, collectionsOwnerA), [collectionAlpha]);
+  await assert.rejects(
+    storage.moveDocumentCollection({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerB,
+      collection_id: collectionBeta
+    }),
+    /different owner/
+  );
+  await assert.rejects(
+    storage.moveDocumentCollection({
+      document_id: 'urn:document:collections-absent',
+      owner_id: collectionsOwnerA,
+      collection_id: collectionBeta
+    }),
+    /not found/
+  );
+  await removeCollections(collectionsOwnerA);
+  await removeCollections(collectionsOwnerB);
+});
+
+integrationTest('confirms a document collection set atomically and refuses a foreign collection', async () => {
+  const storage = createStorage({ pool });
+  await seedCollections(storage);
+
+  assert.deepEqual(
+    await storage.confirmDocumentCollections({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerA,
+      collection_ids: [collectionAlpha, collectionBeta]
+    }),
+    [collectionAlpha, collectionBeta]
+  );
+  assert.deepEqual(await storage.listDocumentCollections(collectionsAlphaDocument.document_id, collectionsOwnerA), [collectionAlpha, collectionBeta]);
+  assert.deepEqual(
+    await storage.confirmDocumentCollections({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerA,
+      collection_ids: [collectionBeta]
+    }),
+    [collectionAlpha, collectionBeta]
+  );
+
+  await assert.rejects(
+    storage.confirmDocumentCollections({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerA,
+      collection_ids: [collectionBeta, collectionForeign]
+    }),
+    /unknown or foreign collection/
+  );
+  assert.deepEqual(await storage.listDocumentCollections(collectionsAlphaDocument.document_id, collectionsOwnerA), [collectionAlpha, collectionBeta]);
+  await assert.rejects(
+    storage.confirmDocumentCollections({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerB,
+      collection_ids: [collectionForeign]
+    }),
+    /different owner/
+  );
+  await assert.rejects(
+    storage.confirmDocumentCollections({
+      document_id: collectionsAlphaDocument.document_id,
+      owner_id: collectionsOwnerA,
+      collection_ids: []
+    }),
+    /collection_ids/
+  );
+  await removeCollections(collectionsOwnerA);
+  await removeCollections(collectionsOwnerB);
+});
+
+test('rejects malformed collection management input before connecting', async () => {
+  const contactless = {
+    connect() {
+      throw new Error('database must not be contacted');
+    },
+    query() {
+      throw new Error('database must not be contacted');
+    }
+  };
+  const readOnly = createStorage({ pool: contactless });
+
+  await assert.rejects(
+    readOnly.suggestDocumentCollections({ document_id: '/private/source.pdf', owner_id: collectionsOwnerA }),
+    /document_id/
+  );
+  await assert.rejects(
+    readOnly.suggestDocumentCollections({ document_id: collectionsAlphaDocument.document_id, owner_id: '../other-owner' }),
+    /owner_id/
+  );
+  await assert.rejects(
+    readOnly.suggestDocumentCollections({ document_id: collectionsAlphaDocument.document_id, owner_id: collectionsOwnerA, max_collections: 0 }),
+    /max_collections/
+  );
+  await assert.rejects(
+    readOnly.suggestDocumentCollections({ document_id: collectionsAlphaDocument.document_id, owner_id: collectionsOwnerA, max_collections: 51 }),
+    /max_collections/
+  );
+  await assert.rejects(
+    readOnly.moveDocumentCollection({ document_id: collectionsAlphaDocument.document_id, owner_id: collectionsOwnerA, collection_id: '../other-collection' }),
+    /collection_id/
+  );
+  await assert.rejects(
+    readOnly.moveDocumentCollection({ document_id: collectionsAlphaDocument.document_id, owner_id: '../other-owner', collection_id: collectionAlpha }),
+    /owner_id/
+  );
+  await assert.rejects(
+    readOnly.confirmDocumentCollections({ document_id: collectionsAlphaDocument.document_id, owner_id: collectionsOwnerA, collection_ids: ['../other-collection'] }),
+    /collection_ids/
+  );
+  await assert.rejects(
+    readOnly.confirmDocumentCollections({ document_id: collectionsAlphaDocument.document_id, owner_id: collectionsOwnerA, collection_ids: [] }),
+    /collection_ids/
+  );
 });
