@@ -111,4 +111,42 @@ non-loopback IP still requires HTTPS. The guard keeps refusing a remote
 cleartext endpoint, which is the reason it exists.
 
 L6. Still open, unchanged by this work: no answer provider is configured, so
-`/v1/answers` returns 503, and `.dockerignore` is still absent.
+`/v1/answers` returns 503, and `.dockerignore` is still absent. Superseded by
+L7 and L8 below.
+
+## Second increment
+
+L7. `.dockerignore` added (`996d416`). Deny-by-default: `*`, then `!package.json`,
+`!package-lock.json`, `!src/`, which is exactly what the Dockerfile copies. Proven
+by a real build: a `COPY . /ctx` probe transferred 26.9 kB containing only those
+paths, with `.secrets/`, `.git/`, `.env*`, `canary.txt` and `node_modules/` absent,
+and the real Dockerfile still built and started.
+
+L8. Host ports pinned in the generated environment (`0fb9d0b`). The seed now also
+records `POSTGRES_HOST_PORT`, `GATEWAY_HOST_PORT` and `WEBUI_HOST_PORT` from the
+environment, falling back to the template default. `npm run test:seed` = 5 pass.
+Resolved on this machine to 65432 / 18080 / 13300, because 8080 is held by
+`cliproxy-stack-cpa-usage-keeper-1` and 55432 by `second-brain-stack-postgres-1`.
+
+L9. Answer provider mapped to the host proxy (`a18c58b`). `extra_hosts
+host.docker.internal:host-gateway` on the gateway, and the cleartext guard widened
+to exactly loopback plus the two host-gateway aliases in `chat-client.js`,
+`embedding-client.js` and `parser-engine-client.js`. An allowlisted host still does
+not become acceptable over cleartext, and an alias still has to be allowlisted.
+
+L10. Embeddings are impossible against this proxy and were deliberately not
+configured. `POST /v1/embeddings` answers 404 with a valid bearer key across three
+model ids, while `/v1/models` answers 200, so the route is absent. `EMBEDDING_*` is
+set nowhere and retrieval keeps degrading to lexical, which is already tested.
+
+Independent verification: 8 of 9 checks HOLDS; 2 recorded as WEAK. The WEAK on the
+seed is real and now documented: a pinned port wins over `.env.example` after the
+first start, so changing a host port later means editing `.secrets/compose.env`.
+The other WEAK is pre-existing duplication of the guard in three clients, not
+introduced here.
+
+Runtime proof, after rebuilding the image (the first `up -d` reused a stale image
+and failed startup with the old `must use https unless the host is loopback`
+message): the stack is healthy on the pinned ports, `/healthz` and `/readyz` answer
+200, and from inside the gateway container the configured provider answers
+`GET /v1/models` 200 with the model present and `POST /v1/chat/completions` 200.
