@@ -1,0 +1,7 @@
+# Deny-by-default build context. Everything is excluded, then only what the
+# Dockerfile copies is re-included, so a new directory stays out until someone
+# opts it in here. .secrets/, .env* and .git never reach the builder.
+*
+!package.json
+!package-lock.json
+!src/
