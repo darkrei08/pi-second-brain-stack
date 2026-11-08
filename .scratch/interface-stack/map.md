@@ -34,6 +34,19 @@ The wider comparison and its evidence live in `research-ui-landscape.md`.
 - V7: The shell is the only store for conversations, pins, and folders. It is an accepted second store, with separate backup and deletion boundaries: conversations in the shell, documents and citations in ours. Nothing about the corpus leaves our store.
 - V8: A collection is the persisted retrieval scope: `collections` plus `document_collections` with composite owner foreign keys, written only by ingest, filtered by every retrieval seam through an optional `collection_ids` list. Memberships carry no label because the shell owns folder names, and a shell file ID is explicitly rejected as the scope. Implemented in `005-collections.sql` and `src/postgres-store.js`; resolved in `issues/02-collections-as-retrieval-scope.md` with commits `6e296cc` and `ebec794`.
 
+## Reopened on 2026-11-08
+
+The operator asked for the comparison to be redone against the live vendor interfaces before the surface is settled, and for a desktop variant to be evaluated for real. Two tickets carry that work. They do not overturn V1; they make V1, V2 and V7 conditional on their outcome, and that is recorded here so the map cannot read as settled while they are open.
+
+| Ticket | Question | Status |
+|---|---|---|
+| [03-first-party-surface](issues/03-first-party-surface.md) | first-party surface or borrowed shell, and which interaction model it follows | open, blocked on operator browser access |
+| [04-desktop-application](issues/04-desktop-application.md) | if first-party, a desktop application, and what it stands on | open, blocked by 03 |
+
+Evidence for the desktop question, read at source from three upstream applications, is in [`research-desktop-shells.md`](research-desktop-shells.md). The short version: the one working desktop reference is Tauri 2 plus 35k lines of Rust and GPLv3, its packaging convention is 146 lines of JSON worth copying while its codebase is not, and this project's gateway is already the boundary a shell would speak to.
+
+What V1 did not measure, and tickets 03 and 04 must: a project holding both conversations and documents, per-turn source scope, hover-and-click citations, promoting a saved answer to a source, voice entry, and a composer switch between answering and research. `research-ui-landscape.md` evaluated open-source shells only; no vendor product was compared.
+
 UI captures are stored in `.scratch/interface-stack/media/`.
 
 ## Integration findings (verified from source)
