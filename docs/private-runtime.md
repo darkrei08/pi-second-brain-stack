@@ -25,13 +25,41 @@ Never commit originals, OCR text, embeddings, graph exports, database dumps, sec
 - Do not expose PostgreSQL, pgvector, object storage, parser workers, or model-admin endpoints.
 - Require gateway authentication even for one human operator.
 - Keep outbound model and tool access disabled unless explicitly configured.
-- Use TLS whenever a request leaves the host. The gateway can terminate TLS when both certificate and key files are configured; it is plain HTTP only on the loopback default otherwise.
+- Use TLS whenever a request leaves the host.
 
 ## Required lifecycle behavior
 
-Ingestion must preserve hash, parser, model, page, region, and source provenance. Deletion must cover originals, OCR, page images, chunks, embeddings, graph rows, caches, logs according to policy, and backups according to the backup-retention procedure.
+Ingestion must preserve hash, parser, model, page, region, and source provenance. Document lifecycle has three distinct outcomes:
 
-The runtime must support export, restore testing, audit events, timeouts, resource limits, archive traversal checks, and prompt-injection handling for retrieved content. The gateway's built-in audit events are redacted request metadata only; its process-local quota is not a distributed limiter.
+- `active` documents are searchable.
+- `tombstone` documents are retained but excluded from retrieval. Tombstone is reversible and is not erasure.
+- Purge physically deletes the document and cascades to its segments, embeddings, and collection memberships. Purge is irreversible and requires a verified backup first.
+
+The `purged` retention value remains only for legacy rows; setting it is not a purge. No HTTP export or purge route exists yet. Deletion outside the database must still cover originals, OCR, page images, graph rows, caches, logs according to policy, and backups according to the backup-retention procedure.
+
+The runtime must support owner-scoped export, restore testing, audit events, timeouts, resource limits, archive traversal checks, and prompt-injection handling for retrieved content.
+
+## Schema migrations and restore
+
+The SQL files under the pinned backend checkout's `docker/postgres/init/` are the single source of schema. Apply pending files from that checkout before deploying code that requires them:
+
+```bash
+(cd ../second-brain-backend && DATABASE_URL="$DATABASE_URL" npm run migrate)
+```
+
+Before any migration on a volume containing data, take and verify a database backup:
+
+```bash
+docker exec <postgres-container> pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" > /secure/path/second-brain-$(date +%Y%m%dT%H%M%S).sql
+```
+
+Restore into a fresh PostgreSQL database/container, not over the source database:
+
+```bash
+cat /secure/path/backup.sql | docker exec -i <fresh-postgres-container> psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+```
+
+Verify restored documents and segments with the application's retrieval path, then run `DATABASE_URL="$RESTORED_DATABASE_URL" pnpm migrate`; it should apply zero versions. Keep backups private, protected, and subject to the same retention and deletion policy as the source data. Never commit a dump.
 
 ## Compliance posture
 
