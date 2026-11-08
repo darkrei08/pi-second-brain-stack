@@ -16,7 +16,7 @@ This feature ports the requested repository-split commits from `feat/session-2` 
 | T1 | S1, S3 | Clean the repository authority document and record the slice plan | c2cfa63, 1a549fc |
 | T2 | S1, S4 | Add a public-safe `docs/media-transcript-repos.md` | c2cfa63 |
 | T3 | S2, S3 | Port the 8cd7ec0 repository split in bounded deletion and documentation slices | 1a549fc through 88a7630 (29 commits) |
-| T4 | S2, S3 | Port the d7b4425 tracker ownership move in bounded slices | pending |
+| T4 | S2, S3 | Port the d7b4425 tracker ownership move in bounded slices | 2237db5 plus tracker reconciliation |
 | T5 | S1-S4 | Verify tree shape, tracker checks, tests, privacy, and per-commit budgets | pending |
 
 ## Log
@@ -28,3 +28,4 @@ This feature ports the requested repository-split commits from `feat/session-2` 
 - L5 (slice boundary): Documentation slice 1 is `c2cfa63`, `1a549fc`, and `87115f4`; it adds 672 lines in three reviewable commits because the boundary records are independent but collectively exceed one review slice. No external delivery has occurred.
 - L6 (slice boundary): The published-package boundary is `529a4ca`. The remaining 8cd7ec0 port is split by honest removable subsystem: schema bootstrap, stack helpers, runtime modules, and duplicate tests. Large whole-file deletions are kept intact rather than replaced with artificial intermediate code.
 - L7 (evidence): The complete 8cd7ec0 port is committed as 29 local work units from `1a549fc` through `88a7630`; the worktree is clean and no source or test deletion remains unstaged.
+- L8 (evidence): d7b4425 moved the checker to `scripts/check-traceability.mjs`, but its inherited matrix described implementation paths removed by 8cd7ec0. The matrix was rewritten to cover all 49 currently resolved tickets with current public references; `npm test` now passes with 49 rows and 0 referenced commits.
