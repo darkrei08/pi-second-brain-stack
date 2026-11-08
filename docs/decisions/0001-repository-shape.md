@@ -55,8 +55,9 @@ inspected state, not intention.
 4. One trunk: `main`. One worktree per unit of work, created from **local `main`** and
    removed on merge. No two worktrees may share a HEAD. An agent must not start work on a
    checkout that has unmerged commits and no open PR. It is local `main` and not
-   `origin/main` because `origin/main` is 109 commits behind, so the literal upstream clause
-   would produce a 109-commit-stale checkout.
+   `origin/main` because a remote-tracking ref is only as current as the last fetch, and on
+   2026-11-08 it was 109 commits behind until the trunk was pushed; cutting from it produced
+   a stale checkout.
 5. Commits are work units, with tests and docs, budgeted at 400 authored changed lines and
    chained when over. A unit that changes a published contract gets its own commit.
 
@@ -166,10 +167,17 @@ Step 3 before 4 because the contract precedes the documents that describe it. St
   ledgers and eight worktrees, which is the state that produced the 13 recorded
   contradictions and the two-line split.
 
+## Published on 2026-11-08
+
+`main` was pushed `600a476..ea4aefb` as a fast-forward, after proving `origin/main` was an
+ancestor and that `main` was 0 commits behind it. All 18 `archive/*` tags were pushed in the
+same pass, so every pruned branch tip has a second copy off this host and the three commits
+held only by opaque tags are no longer one `git gc` away from being unreachable. Nothing was
+force-pushed, and the push was rejected-safe by construction: the remote would have refused
+any non-fast-forward.
+
 ## Still outstanding
 
-- Push `main` to `origin`: 109 commits live on one host and on one disk only, and that is a
-  delivery decision that requires the operator.
 - Port `feat/session-2` in work units.
 - Remove the duplicate gateway from the stack.
 - Collapse the four ledgers.
