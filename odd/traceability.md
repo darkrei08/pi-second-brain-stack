@@ -55,6 +55,17 @@ The dependency-free checker is `scripts/check-traceability.mjs` and runs through
 | Resolved ticket: ANN sidecar gate | `.scratch/ann-indexes/issues/03-sidecar-gate.md` | `docs/media-transcript-repos.md` | Resolved |
 | Resolved ticket: RAG market comparison | `.scratch/rag-market-comparison/issues/01-compare-prebuilt-rag-platforms.md` | `docs/media-transcript-repos.md` | Resolved |
 | Resolved ticket: grounded answers | `.scratch/live-answers/issues/01-grounded-answers.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: buffered chat completions | `.scratch/gateway-clients/issues/01-chat-completions.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: streaming chat completions | `.scratch/gateway-clients/issues/02-streaming-chat-completions.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: bounded research and Open WebUI glue | `.scratch/gateway-clients/issues/03-open-webui-research.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: delivered-stack risk register | `.scratch/risk-register/issues/01-risk-register.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: traceability drift check | `.scratch/risk-register/issues/02-traceability-drift-check.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: provider egress allowlist | `.scratch/risk-register/issues/03-provider-egress-allowlist.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: migrations and restore | `.scratch/risk-register/issues/04-migrations-and-restore.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: export and purge | `.scratch/risk-register/issues/05-export-and-purge.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: model route limits | `.scratch/risk-register/issues/06-model-route-limits.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: CI gate | `.scratch/risk-register/issues/07-ci-gate.md` | `docs/media-transcript-repos.md` | Resolved |
+| Resolved ticket: provider-call audit | `.scratch/risk-register/issues/08-provider-call-audit.md` | `docs/media-transcript-repos.md` | Resolved |
 
 ## Current boundary
 
