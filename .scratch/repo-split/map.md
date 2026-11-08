@@ -16,8 +16,8 @@ Settled before this map and not reopened: the primary surface is Open WebUI ([in
 ## Decisions so far
 
 - [Move the gateway into its own repository](issues/01-create-the-backend-repository.md): `darkrei08/pi-second-brain-backend` exists at `9082979`, 47 commits of `src/` history before and after the filter, the import cycle broken before the move, and its own CI. Verified from a fresh clone: 174 tests, 141 pass, 0 fail.
-- [Decide where the tracker test lives](issues/03-decide-the-fate-of-the-tracker-test.md): it stays in this repository, where the tracker is, as the dependency-free `check-traceability.mjs` check run by `npm test` before tracker changes are pushed. It caught a missing matrix row during this program.
-- [Move the plugin package into its own repository](issues/02-create-the-shell-repository.md): the shell repository exists at `darkrei08/pi-second-brain-shell`, history kept for the three commits that touched the prefix, 17 plugin tests green in its own CI, package at the repository root, BSD 3-Clause recorded for the pinned tag. Ticket 05 now removes the local copy and mounts the pinned package checkout.
+- [Decide where the tracker test lives](issues/03-decide-the-fate-of-the-tracker-test.md): it stays in this repository, where the tracker is, as the dependency-free `scripts/check-traceability.mjs` check run by `npm test` before tracker changes are pushed. It caught a missing matrix row during this program.
+- [Move the plugin package into its own repository](issues/02-create-the-shell-repository.md): the shell repository exists at `darkrei08/pi-second-brain-shell`, history kept for the three commits that touched the prefix, 17 plugin tests green in its own CI, package at the repository root, BSD 3-Clause recorded for the pinned tag. The local copy still needs removing, which is ticket 05.
 - The product program, meaning identity, work groups, group scoping and the end-to-end proof, moved to [identity and work groups](../identity-and-work-groups/map.md), which carries the evidence from the gap analysis. The drafts numbered 05 to 11 here duplicated it with less evidence and are dropped. This map keeps the repository split and the contract.
 
 ## Blockers the split must resolve first
@@ -26,14 +26,14 @@ Settled before this map and not reopened: the primary surface is Open WebUI ([in
 - `compose.yaml:13,20-44,71-73` mounts gateway, database and shell paths in one file, so moving either side's directories breaks the reference stack until Compose is split or pinned to a path contract.
 - `src/index.js:9` and `src/answer-question.js:1` form an import cycle. The cheapest moment to break it is before the move, not after.
 - `shell-stack.env:3-11` holds local credentials and is untracked via `.gitignore:6`. No repository may receive it, and the shipped example keeps placeholders only (`.env.shell-stack.example:1-11`).
-- The Python plugin suite is not in this repository's CI: the stack check is dependency-free, while `python3 -m unittest discover -s tests` passes 17 tests in the pinned shell checkout. The shell repository carries that job itself.
-- The published shell checkout's `tests/test_plugins.py` resolves its own repository root and package paths; the reference stack only mounts its released `filters/`, `pipes/`, and `bootstrap.py` files.
+- The Python plugin suite is not in CI: `.github/workflows/ci.yml:7-49` runs Node and PostgreSQL jobs only, while `python3 -m unittest discover -s integrations/open-webui/tests` passes 17 tests by hand. The shell repository has to carry that job itself.
+- `integrations/open-webui/tests/test_plugins.py:9,20-29` locates the repository root through `.parents[3]` and hard-codes plugin paths, so extraction breaks it unless those lookups change with the move.
 - `README.md:29,39,54-60,222,273` recommends LibreChat as the primary web UI while the settled decision and the running stack are Open WebUI. The public front door contradicts the decision.
 
 ## What each repository owns
 
-- **Backend** (`pi-second-brain-backend`): `backend/src/`, `backend/test/` except the tracker test, `backend/scripts/`, `backend/docker/postgres/init/`, `package.json`, the lockfile, the backend ODD documents and its own CI. It owns the HTTP contract, the corpus, migrations, citations and identity resolution.
-- **Shell** (`pi-second-brain-shell`): `shell/` in full (`filters/`, `pipes/`, `bootstrap.py`, tests), a browser-free Python CI job, and the release record of the pinned image with its licence position (BSD-3 for v0.6.5, read at `https://github.com/open-webui/open-webui/blob/v0.6.5/LICENSE`; later tags carry a different position and must be re-read before any upgrade). It is a plugin package for a pinned third-party shell, not a fork and not a first-party UI.
+- **Backend** (`pi-second-brain-backend`): `src/`, `test/` except the tracker test, `scripts/`, `docker/postgres/init/`, `package.json`, the lockfile, the backend ODD documents and its own CI. It owns the HTTP contract, the corpus, migrations, citations and identity resolution.
+- **Shell** (`pi-second-brain-shell`): `integrations/open-webui/` in full, the bootstrap, the plugin tests, a browser-free Python CI job, and the release record of the pinned image with its licence position (BSD-3 for v0.6.5, read at `https://github.com/open-webui/open-webui/blob/v0.6.5/LICENSE`; later tags carry a different position and must be re-read before any upgrade). It is a plugin package for a pinned third-party shell, not a fork and not a first-party UI.
 - **This repository**: the documentation, `compose.yaml` as the reference stack, the secret-free example environment file, the tracker, and the contract document both other repositories consume.
 
 ## Skills matrix: what runs for what
